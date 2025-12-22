@@ -1,5 +1,13 @@
 use macroquad::prelude::*;
 
+// constants
+const LINEAR_ACC: f32 = 2000.0;
+const ANGULAR_ACC: f32 = 25.0;
+const MAX_LINEAR_SPEED: f32 = 5000.0;
+const MAX_ANGULAR_SPEED: f32 = 25.0;
+const DECAY_FACTOR: f32 = 0.05;
+const ROBOT_RADIUS: f32 = 48.0;
+
 #[macroquad::main("2D EKF SLAM Simulator")]
 async fn main() {
     // position states
@@ -11,12 +19,6 @@ async fn main() {
     let mut dir: f32 = 0.0;
     let mut angular_velocity: f32 = 0.0;
 
-    // constants
-    let linear_acc: f32 = 2000.0;
-    let angular_acc: f32 = 25.0;
-    let max_linear_speed: f32 = 5000.0;
-    let max_angular_speed: f32 = 25.0;
-    let decay_factor: f32 = 0.05;
 
     loop {
         clear_background(BLACK);
@@ -28,21 +30,21 @@ async fn main() {
 
         // keyboard controls
         if is_key_down(KeyCode::Up) {
-            linear_velocity += linear_acc * delta_time;
+            linear_velocity += LINEAR_ACC * delta_time;
         }
         if is_key_down(KeyCode::Down) {
-            linear_velocity -= linear_acc * delta_time;
+            linear_velocity -= LINEAR_ACC * delta_time;
         }
         if is_key_down(KeyCode::Right) {
-            angular_velocity += angular_acc * delta_time;
+            angular_velocity += ANGULAR_ACC * delta_time;
         }
         if is_key_down(KeyCode::Left) {
-            angular_velocity -= angular_acc * delta_time;
+            angular_velocity -= ANGULAR_ACC * delta_time;
         }
         
         // bound velocity
-        linear_velocity = linear_velocity.clamp(-max_linear_speed, max_linear_speed);
-        angular_velocity = angular_velocity.clamp(-max_angular_speed, max_angular_speed);
+        linear_velocity = linear_velocity.clamp(-MAX_LINEAR_SPEED, MAX_LINEAR_SPEED);
+        angular_velocity = angular_velocity.clamp(-MAX_ANGULAR_SPEED, MAX_ANGULAR_SPEED);
         
         // update direction
         dir += 0.5 * (angular_velocity + initial_angular_velocity) * delta_time;
@@ -55,14 +57,16 @@ async fn main() {
         y = y.clamp(0.0, screen_height());
 
         // draw "robot"; segment shows direction
-        draw_circle(x, y, 48.0, BLUE);
-        draw_line(x, y, x + 48.0 * dir.cos(), y + 48.0 * dir.sin(), 4.0, WHITE);
+        draw_circle(x, y, ROBOT_RADIUS, BLUE);
+        draw_line(x, y, x + ROBOT_RADIUS * dir.cos(), y + ROBOT_RADIUS * dir.sin(), 4.0, WHITE);
+
+        // ground truth text
         draw_text(&format!("pos: ({:.0}, {:.0})", x, y), 25.0, 50.0, 36.0, WHITE);
         draw_text(&format!("angle: {:.2} rad", dir), 25.0, 100.0, 36.0, WHITE);
         
         // apply decay
-        linear_velocity *= decay_factor.powf(delta_time);
-        angular_velocity *= decay_factor.powf(delta_time);
+        linear_velocity *= DECAY_FACTOR.powf(delta_time);
+        angular_velocity *= DECAY_FACTOR.powf(delta_time);
 
         next_frame().await
     }
