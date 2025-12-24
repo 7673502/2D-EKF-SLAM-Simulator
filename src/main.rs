@@ -132,6 +132,26 @@ async fn main() {
         gt_x = gt_x.clamp(cfg.robot_radius - screen_width() / 4.0, screen_width() / 4.0 - cfg.robot_radius);
         gt_y = gt_y.clamp(cfg.robot_radius - screen_height() / 2.0, screen_height() / 2.0 - cfg.robot_radius);
 
+        // detect obstruction
+        for obstruction in obstructions.iter() {
+            let closest_x = gt_x.clamp(obstruction.x - obstruction.w / 2.0, obstruction.x + obstruction.w / 2.0);
+            let closest_y = gt_y.clamp(obstruction.y - obstruction.h / 2.0, obstruction.y + obstruction.h / 2.0);
+            
+            // distance from closest point on obstruction to center of robot
+            let distance_x = gt_x - closest_x;
+            let distance_y = gt_y - closest_y;
+            let distance_sq = distance_x * distance_x + distance_y * distance_y;
+            
+            if distance_sq < cfg.robot_radius * cfg.robot_radius {
+                let distance = distance_sq.sqrt();
+                
+                if distance > 0.0 {
+                    gt_x = closest_x + cfg.robot_radius * (distance_x / distance);
+                    gt_y = closest_y + cfg.robot_radius * (distance_y / distance);
+                }
+            }
+        }
+
         // draw obstructions and landmarks
         for obstruction in obstructions.iter() {
             let (effective_rect_x, effective_rect_y) = gt_to_screen(obstruction.x - obstruction.w / 2.0, obstruction.y + obstruction.h / 2.0);
