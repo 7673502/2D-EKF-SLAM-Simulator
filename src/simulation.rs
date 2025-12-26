@@ -10,8 +10,8 @@ pub struct Robot {
     pub dir: f32,
     pub linear_velocity: f32,
     pub angular_velocity: f32,
-    pub prev_linear_velocity: f32,
-    pub prev_angular_velocity: f32,
+    prev_linear_velocity: f32,
+    prev_angular_velocity: f32,
     rng: ThreadRng,
     normal: Normal<f32>,
 }
