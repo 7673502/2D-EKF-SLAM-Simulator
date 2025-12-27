@@ -37,8 +37,8 @@ impl Robot {
         self.angular_velocity = self.angular_velocity.clamp(-cfg.max_angular_speed, cfg.max_angular_speed);
 
         // apply decay
-        self.linear_velocity *= cfg.alpha_linear_friction.powf(delta_time);
-        self.angular_velocity *= cfg.alpha_angular_friction.powf(delta_time);
+        self.linear_velocity *= (-cfg.drag_linear * delta_time).exp();
+        self.angular_velocity *= (-cfg.drag_angular * delta_time).exp();
         
         // add noise to velocity; uses separate variable to keep struct's velocities clean
         let noisy_linear_velocity = self.linear_velocity + cfg.alpha_linear  * self.linear_velocity.abs() * self.normal.sample(&mut self.rng);

@@ -12,8 +12,8 @@ pub struct Config {
     pub alpha_angular: f32,
     
     // decay factor (friction) scalings
-    pub alpha_linear_friction: f32,
-    pub alpha_angular_friction: f32,
+    pub drag_linear: f32,
+    pub drag_angular: f32,
 
     // landmark size
     pub landmark_radius: f32,
@@ -26,15 +26,15 @@ pub struct Config {
 impl Config {
     pub fn default() -> Self {
         Self {
-            linear_acc: 150.0,
-            angular_acc: 12.0,
+            linear_acc: 64.0,
+            angular_acc: 6.0,
             robot_radius: 24.0,
-            max_linear_speed: 100.0,
-            max_angular_speed: 25.0,
-            alpha_linear: 0.05,
+            max_linear_speed: 50.0,
+            max_angular_speed: 1.5,
+            alpha_linear: 0.03,
             alpha_angular: 0.01,
-            alpha_linear_friction: 0.02,
-            alpha_angular_friction: 0.02,
+            drag_linear: 1.5,
+            drag_angular: 4.0,
             landmark_radius: 4.0,
             obstruction_width: 50.0,
             obstruction_height: 50.0,
