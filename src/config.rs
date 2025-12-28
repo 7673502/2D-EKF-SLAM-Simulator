@@ -23,7 +23,10 @@ pub struct Config {
     pub obstruction_height: f32,
 
     // camera
-    pub gt_zoom_factor: f32,
+    pub horizontal_units: f32, // number of units horizontally for camera viewport
+
+    // grid
+    pub grid_unit: f32,
 }
 
 impl Config {
@@ -41,7 +44,8 @@ impl Config {
             landmark_radius: 4.0,
             obstruction_width: 50.0,
             obstruction_height: 50.0,
-            gt_zoom_factor: 1.0 / 250.0,
+            horizontal_units: 500.0,
+            grid_unit: 50.0,
         }
     }
 }

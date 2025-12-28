@@ -10,7 +10,7 @@ fn window_conf() -> Conf {
         window_title: "2D EKF SLAM Simulator".to_owned(),
         window_width: 800,
         window_height: 600,
-        window_resizable: false,
+        window_resizable: true,
         sample_count: 4,
         ..Default::default()
     }
@@ -32,7 +32,7 @@ async fn main() {
         
         let camera = Camera2D {
                 target: vec2(robot.x, robot.y),
-                zoom: vec2(cfg.gt_zoom_factor, -cfg.gt_zoom_factor * viewport_width / viewport_height),
+                zoom: vec2(2.0 / cfg.horizontal_units, 2.0 / -cfg.horizontal_units * viewport_width / viewport_height),
                 viewport: Some((0, 0, viewport_width as i32, viewport_height as i32)),
                 ..Default::default()
         };
@@ -74,7 +74,7 @@ async fn main() {
                     obstructions.push(
                         Rect::new(
                             mouse_world.x - cfg.obstruction_width / 2.0,
-                            mouse_world.y - cfg.obstruction_width / 2.0,
+                            mouse_world.y - cfg.obstruction_height / 2.0,
                             cfg.obstruction_width,
                             cfg.obstruction_height
                         )
@@ -107,6 +107,35 @@ async fn main() {
          * ground truth world
          */
         set_camera(&camera);
+        
+        // vertical gridlines
+        let vertical_units = (cfg.horizontal_units / viewport_width) * viewport_height; // number of units present in viewport vertically
+        let num_horizontal = (cfg.horizontal_units / cfg.grid_unit).floor() as i32 + 2;
+        let start_vertical_gridline = (robot.x - (robot.x % cfg.grid_unit)) - ((cfg.horizontal_units / 2.0) - ((cfg.horizontal_units / 2.0) % cfg.grid_unit));
+        for i in 0..num_horizontal {
+            draw_line(
+                start_vertical_gridline + cfg.grid_unit * i as f32,
+                robot.y + vertical_units / 2.0 + 1.0,
+                start_vertical_gridline + cfg.grid_unit * i as f32,
+                robot.y - vertical_units / 2.0 - 1.0,
+                if start_vertical_gridline + cfg.grid_unit * i as f32 == 0.0 {4.0} else {2.0},
+                LIGHTGRAY
+            );
+        }
+
+        // horizontal gridlines
+        let num_vertical = (vertical_units / cfg.grid_unit).floor() as i32 + 2;
+        let start_horizontal_gridline = (robot.y - (robot.y % cfg.grid_unit)) - ((vertical_units / 2.0) - ((vertical_units / 2.0) % cfg.grid_unit));
+        for i in 0..num_vertical {
+            draw_line(
+                robot.x + cfg.horizontal_units / 2.0 + 1.0,
+                start_horizontal_gridline + cfg.grid_unit * i as f32,
+                robot.x - cfg.horizontal_units / 2.0 - 1.0,
+                start_horizontal_gridline + cfg.grid_unit * i as f32,
+                if start_horizontal_gridline + cfg.grid_unit * i as f32 == 0.0 {4.0} else {2.0},
+                LIGHTGRAY
+            );
+        }
 
         // draw obstructions and landmarks
         for obstruction in obstructions.iter() {
