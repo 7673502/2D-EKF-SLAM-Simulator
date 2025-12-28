@@ -51,13 +51,11 @@ impl Robot {
         // update position
         self.x += (0.5 * (noisy_linear_velocity + self.prev_linear_velocity) * delta_time) * self.dir.cos();
         self.y += (0.5 * (noisy_linear_velocity + self.prev_linear_velocity) * delta_time) * self.dir.sin();
-        //self.x = self.x.clamp(cfg.robot_radius - screen_width() / 4.0, screen_width() / 4.0 - cfg.robot_radius);
-        //self.y = self.y.clamp(cfg.robot_radius - screen_height() / 2.0, screen_height() / 2.0 - cfg.robot_radius);
 
         // detect obstruction
         for obstruction in obstructions.iter() {
-            let closest_x = self.x.clamp(obstruction.x, obstruction.x + obstruction.w / 2.0);
-            let closest_y = self.y.clamp(obstruction.y, obstruction.y + obstruction.h / 2.0);
+            let closest_x = self.x.clamp(obstruction.x, obstruction.x + obstruction.w);
+            let closest_y = self.y.clamp(obstruction.y, obstruction.y + obstruction.h);
             
             // distance from closest point on obstruction to center of robot
             let distance_x = self.x - closest_x;
