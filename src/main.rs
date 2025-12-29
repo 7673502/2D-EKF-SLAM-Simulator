@@ -118,42 +118,44 @@ async fn main() {
                 robot.y + vertical_units / 2.0 + 1.0,
                 start_vertical_gridline + cfg.grid_unit * i as f32,
                 robot.y - vertical_units / 2.0 - 1.0,
-                if start_vertical_gridline + cfg.grid_unit * i as f32 == 0.0 {4.0} else {2.0},
-                LIGHTGRAY
+                if (start_vertical_gridline + cfg.grid_unit * i as f32).abs() < 0.1 {4.0} else {2.0},
+                WHITE
             );
         }
 
         // horizontal gridlines
         let num_vertical = (vertical_units / cfg.grid_unit).floor() as i32 + 2;
-        let start_horizontal_gridline = (robot.y - (robot.y % cfg.grid_unit)) - ((vertical_units / 2.0) - ((vertical_units / 2.0) % cfg.grid_unit));
+        let start_horizontal_gridline = (robot.y - (robot.y % cfg.grid_unit)) - ((vertical_units / 2.0) - ((vertical_units / 2.0) % cfg.grid_unit)) - cfg.grid_unit;
         for i in 0..num_vertical {
             draw_line(
                 robot.x + cfg.horizontal_units / 2.0 + 1.0,
                 start_horizontal_gridline + cfg.grid_unit * i as f32,
                 robot.x - cfg.horizontal_units / 2.0 - 1.0,
                 start_horizontal_gridline + cfg.grid_unit * i as f32,
-                if start_horizontal_gridline + cfg.grid_unit * i as f32 == 0.0 {4.0} else {2.0},
-                LIGHTGRAY
+                if (start_horizontal_gridline + cfg.grid_unit * i as f32).abs() < 0.1 {4.0} else {2.0},
+                WHITE
             );
         }
 
         // draw obstructions and landmarks
         for obstruction in obstructions.iter() {
-            draw_rectangle(obstruction.x, obstruction.y, obstruction.w, obstruction.h, GRAY);
+            draw_rectangle(obstruction.x, obstruction.y, obstruction.w, obstruction.h, LIGHTGRAY);
+            draw_rectangle(obstruction.x + 4.0, obstruction.y + 4.0, obstruction.w - 8.0, obstruction.h - 8.0, GRAY);
         }
         for landmark in landmarks.iter() {
             draw_circle(landmark.0, landmark.1, cfg.landmark_radius, RED);
         }
 
         // draw "robot"; segment shows direction
-        draw_circle(robot.x, robot.y, cfg.robot_radius, BLUE);
-        draw_line(robot.x, robot.y, robot.x + cfg.robot_radius * robot.dir.cos(), robot.y + cfg.robot_radius * robot.dir.sin(), 4.0, WHITE);
+        draw_circle(robot.x, robot.y, cfg.robot_radius, SKYBLUE);
+        draw_circle(robot.x, robot.y, cfg.robot_radius - 4.0, DARKPURPLE);
+        draw_line(robot.x, robot.y, robot.x + cfg.robot_radius * robot.dir.cos(), robot.y + cfg.robot_radius * robot.dir.sin(), 4.0, SKYBLUE);
 
         /*
          * UI
          */
         set_default_camera();
-        draw_line(viewport_width, 0.0, viewport_width, viewport_height, 4.0, WHITE);
+        draw_line(viewport_width, 0.0, viewport_width, viewport_height, 6.0, WHITE);
         draw_text(&format!("pos: ({:.0}, {:.0})", robot.x, robot.y), 25.0, 50.0, 36.0, WHITE);
         draw_text(&format!("angle: {:.2} rad", robot.dir), 25.0, 100.0, 36.0, WHITE);
         draw_text(&format!("lin vel: {:.2}", robot.linear_velocity), 25.0, 150.0, 36.0, WHITE);

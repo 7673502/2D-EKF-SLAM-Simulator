@@ -41,11 +41,11 @@ impl Config {
             alpha_angular: 0.01,
             drag_linear: 1.9,
             drag_angular: 4.0,
-            landmark_radius: 4.0,
+            landmark_radius: 6.0,
             obstruction_width: 50.0,
             obstruction_height: 50.0,
             horizontal_units: 500.0,
-            grid_unit: 50.0,
+            grid_unit: 100.0,
         }
     }
 }
