@@ -4,6 +4,8 @@ mod simulation;
 mod config;
 use config::Config;
 
+use crate::simulation::Landmark;
+
 
 fn window_conf() -> Conf {
     Conf {
@@ -22,7 +24,7 @@ async fn main() {
     
     // rectangles and landmarks
     let mut obstructions: Vec<Rect> = Vec::new();
-    let mut landmarks: Vec<(f32, f32)> = Vec::new();
+    let mut landmarks: Vec<Landmark> = Vec::new();
 
     let mut robot = simulation::Robot::new();
 
@@ -83,19 +85,25 @@ async fn main() {
             }
             if is_mouse_button_released(MouseButton::Right) {
                 let mut removed = false;
-                for i in 0..landmarks.len() {
-                    let landmark = landmarks[i];
-                    if mouse_world.x < landmark.0 + cfg.landmark_radius &&
-                       mouse_world.x > landmark.0 - cfg.landmark_radius &&
-                       mouse_world.y < landmark.1 + cfg.landmark_radius &&
-                       mouse_world.y > landmark.1 - cfg.landmark_radius {
+                for (i, landmark) in landmarks.iter().enumerate() {
+                    if mouse_world.x < landmark.x + cfg.landmark_radius &&
+                       mouse_world.x > landmark.x - cfg.landmark_radius &&
+                       mouse_world.y < landmark.y + cfg.landmark_radius &&
+                       mouse_world.y > landmark.y - cfg.landmark_radius {
                         landmarks.remove(i);
                         removed = true;
                         break;
                     }
                 }
                 if !removed {
-                    landmarks.push((mouse_world.x, mouse_world.y));
+                    let id = landmarks.last().map(|l| l.id + 1).unwrap_or(0);
+                    landmarks.push(
+                        Landmark {
+                            id,
+                            x: mouse_world.x, 
+                            y: mouse_world.y 
+                        }
+                    );
                 }
             }
         }
@@ -143,7 +151,7 @@ async fn main() {
             draw_rectangle(obstruction.x + 4.0, obstruction.y + 4.0, obstruction.w - 8.0, obstruction.h - 8.0, GRAY);
         }
         for landmark in landmarks.iter() {
-            draw_circle(landmark.0, landmark.1, cfg.landmark_radius, RED);
+            draw_circle(landmark.x, landmark.y, cfg.landmark_radius, RED);
         }
 
         // draw "robot"; segment shows direction

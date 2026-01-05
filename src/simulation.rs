@@ -16,6 +16,12 @@ pub struct Robot {
     normal: Normal<f32>,
 }
 
+pub struct Landmark {
+    pub id: usize,
+    pub x: f32,
+    pub y: f32,
+}
+
 impl Robot {
     pub fn new() -> Self {
         Self {
