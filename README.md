@@ -5,3 +5,7 @@ This is a work-in-progress Rust implementation of an [EKF-SLAM](https://www.iri.
 ## To do:
 - perceived position and map
 - obstructions blocking landmarks
+- use (-π, π] instead of [0, 2π) for angles globally
+- EKF correction step
+- good UI
+- want to do FastSLAM and GraphSLAM later
