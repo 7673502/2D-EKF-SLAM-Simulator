@@ -1,6 +1,7 @@
 use macroquad::prelude::*;
 
 mod simulation;
+mod ekf_slam;
 mod config;
 use config::Config;
 
@@ -27,16 +28,24 @@ async fn main() {
     let mut landmarks: Vec<Landmark> = Vec::new();
 
     let mut robot = simulation::Robot::new();
+    let mut ekf_slam = ekf_slam::EkfSlam::new();
 
     loop {
         let viewport_height = screen_height();
         let viewport_width = screen_width() / 2.0;
         
         let gt_camera = Camera2D {
-                target: vec2(robot.x, robot.y),
-                zoom: vec2(2.0 / cfg.horizontal_units, 2.0 / -cfg.horizontal_units * viewport_width / viewport_height),
-                viewport: Some((0, 0, viewport_width as i32, viewport_height as i32)),
-                ..Default::default()
+            target: vec2(robot.x, robot.y),
+            zoom: vec2(2.0 / cfg.horizontal_units, 2.0 / -cfg.horizontal_units * viewport_width / viewport_height),
+            viewport: Some((0, 0, viewport_width as i32, viewport_height as i32)),
+            ..Default::default()
+        };
+        
+        let slam_camera = Camera2D {
+            target: vec2(ekf_slam.state[0], ekf_slam.state[1]),
+            zoom: vec2(2.0 / cfg.horizontal_units, 2.0 / -cfg.horizontal_units * viewport_width / viewport_height),
+            viewport: Some((0, 0, viewport_width as i32, viewport_height as i32)),
+            ..Default::default()
         };
         
         let delta_time: f32 = get_frame_time();
@@ -55,8 +64,18 @@ async fn main() {
             robot.angular_velocity += cfg.angular_acc * delta_time;
         }
         
+        // ground truth robot update
         robot.update(delta_time, &cfg, &obstructions);
+
+        // ekf prediction step
+        ekf_slam.predict(robot.linear_velocity, robot.angular_velocity, delta_time);
         
+        // ekf correction step
+        let observations = robot.sense(&landmarks, &cfg);
+        for observation in observations.iter() {
+            ekf_slam.update(observation, &cfg);
+        }
+
         // adding landmarks and obstructions
         let mouse_screen = mouse_position();
         let mouse_world = gt_camera.screen_to_world(vec2(mouse_screen.0, mouse_screen.1));
@@ -168,6 +187,9 @@ async fn main() {
         draw_text(&format!("angle: {:.2} rad", robot.dir), 25.0, 100.0, 36.0, WHITE);
         draw_text(&format!("lin vel: {:.2}", robot.linear_velocity), 25.0, 150.0, 36.0, WHITE);
         draw_text(&format!("ang vel: {:.2}", robot.angular_velocity), 25.0, 200.0, 36.0, WHITE);
+
+
+        draw_text(&format!("pos: ({:.0}, {:.0})", ekf_slam.state[0], ekf_slam.state[1]), 25.0 + viewport_width, 50.0, 36.0, WHITE);
 
         next_frame().await
     }
