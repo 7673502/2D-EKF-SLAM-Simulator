@@ -1,4 +1,4 @@
-use nalgebra::{DMatrix, DVector, Matrix2x3, Matrix2};
+use nalgebra::{DMatrix, DVector, dvector, Matrix2x3, Matrix2, stack};
 use std::{collections::HashMap};
 use crate::simulation::Observation;
 use crate::config::Config;
@@ -85,7 +85,7 @@ impl EkfSlam {
     pub fn update(&mut self, observation: &Observation, cfg: &Config) {
         match self.observed_landmarks.get(&observation.id) {
             Some(&landmark_index) => {
-                self.correct_landmark(observation, landmark_index);
+                self.correct_landmark(observation, landmark_index, cfg);
             }
             None => {
                 self.initialize_landmark(observation, cfg);
@@ -94,7 +94,7 @@ impl EkfSlam {
     }
     
     /*
-     * landmark initialization for full observations
+     * ekf landmark initialization step for full observations
      */
     fn initialize_landmark(&mut self, observation: &Observation, cfg: &Config) {
         let old_len = self.state.nrows(); // old length of state vector
@@ -160,8 +160,83 @@ impl EkfSlam {
         self.covariance = covariance; // return ownership
     }
     
-    fn correct_landmark(&self, observation: &Observation, landmark_index: usize) {
-        // TODO
+    /*
+     * ekf correction step
+     */
+    fn correct_landmark(&mut self, observation: &Observation, landmark_index: usize, cfg: &Config) {
+        let robot_x = self.state[0];
+        let robot_y = self.state[1];
+
+        let landmark_x = self.state[landmark_index];
+        let landmark_y = self.state[landmark_index + 1];
+
+        // predicted measurement and innovation
+        let (predicted_range, predicted_bearing) = self.absolute_to_relative(landmark_x, landmark_y);
+        let range_difference = observation.range - predicted_range;
+        let bearing_difference = f32::atan2((observation.bearing - predicted_bearing).sin(), (observation.bearing - predicted_bearing).cos());
+
+        // innovation vector
+        let z = dvector![range_difference, bearing_difference];
+
+        // distance to landmark
+        let distance_x = landmark_x - robot_x;
+        let distance_y = landmark_y - robot_y;
+        let distance_sq = (distance_x * distance_x + distance_y * distance_y).max(1e-6);
+        let distance = distance_sq.sqrt();
+
+        // jacobian with respect to robot
+        let h_r = Matrix2x3::new(
+            -distance_x / distance, -distance_y / distance, 0.0,
+            distance_y / distance_sq,  -distance_x / distance_sq, -1.0
+        );
+
+        // jacobian with respect to landmark
+        let h_l = Matrix2::new(
+            distance_x / distance, distance_y / distance,
+            -distance_y / distance_sq, distance_x / distance_sq
+        );
+
+        // innovation covariance calculation
+        let p_rr = self.covariance.fixed_view::<3, 3>(0, 0); // robot-robot covariance
+        let p_ll = self.covariance.fixed_view::<2, 2>(landmark_index, landmark_index); // landmark-landmark covariance
+        let p_rl = self.covariance.fixed_view::<3, 2>(0, landmark_index); // robot-landmark covariance
+        let p_lr = p_rl.transpose(); // landmark-robot covariance
+
+        // sensor noise
+        let r = Matrix2::new(
+            cfg.sigma_range.powi(2), 0.0,
+            0.0, cfg.sigma_bearing.powi(2)
+        );
+
+        // block matrices
+        let h_block = stack![h_r, h_l];
+        let p_block = stack![
+            p_rr, p_rl;
+            p_lr, p_ll
+        ];
+        let h_t_block = stack![
+            h_r.transpose();
+            h_l.transpose()
+        ];
+
+        // innovation matrix
+        let z_matrix = h_block * p_block * h_t_block + r;
+        
+        // calculate product of covariance with jacobian transpose (PH^T)
+        let total_map_size = self.state.nrows();
+        let p_cols_robot = self.covariance.view((0, 0), (total_map_size, 3));
+        let p_cols_landmark = self.covariance.view((0, landmark_index), (total_map_size, 2));
+        let p_ht = (p_cols_robot * h_r.transpose()) + (p_cols_landmark * h_l.transpose());
+
+        // Kalman gain
+        let k = p_ht * z_matrix.try_inverse().unwrap();
+
+        // update state and covariance
+        self.state = &self.state + &k * z;
+        self.covariance = &self.covariance - &k * z_matrix * k.transpose();
+
+        // normalize angle
+        self.state[2] = f32::atan2(self.state[2].sin(), self.state[2].cos());
     }
     
     /*
