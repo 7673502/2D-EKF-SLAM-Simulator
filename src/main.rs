@@ -32,19 +32,12 @@ async fn main() {
 
     loop {
         let viewport_height = screen_height();
-        let viewport_width = screen_width() / 2.0;
+        let viewport_width = screen_width();
         
         let gt_camera = Camera2D {
             target: vec2(robot.x, robot.y),
             zoom: vec2(2.0 / cfg.horizontal_units, 2.0 / -cfg.horizontal_units * viewport_width / viewport_height),
             viewport: Some((0, 0, viewport_width as i32, viewport_height as i32)),
-            ..Default::default()
-        };
-        
-        let slam_camera = Camera2D {
-            target: vec2(ekf_slam.state[0], ekf_slam.state[1]),
-            zoom: vec2(2.0 / cfg.horizontal_units, 2.0 / -cfg.horizontal_units * viewport_width / viewport_height),
-            viewport: Some((viewport_width as i32, 0, viewport_width as i32, viewport_height as i32)),
             ..Default::default()
         };
         
@@ -178,20 +171,13 @@ async fn main() {
         draw_circle(robot.x, robot.y, cfg.robot_radius - 4.0, DARKPURPLE);
         draw_line(robot.x, robot.y, robot.x + cfg.robot_radius * robot.dir.cos(), robot.y + cfg.robot_radius * robot.dir.sin(), 4.0, SKYBLUE);
 
-        /*
-         * ekf world
-         */
-        set_camera(&slam_camera);
-
-        draw_circle(ekf_slam.state[0], ekf_slam.state[1], cfg.robot_radius, SKYBLUE);
-        draw_circle(ekf_slam.state[0], ekf_slam.state[1], cfg.robot_radius - 4.0, DARKPURPLE);
-        draw_line(ekf_slam.state[0], ekf_slam.state[1], ekf_slam.state[0] + cfg.robot_radius * ekf_slam.state[2].cos(), ekf_slam.state[1] + cfg.robot_radius * ekf_slam.state[2].sin(), 4.0, SKYBLUE);
+        draw_circle(ekf_slam.state[0], ekf_slam.state[1], cfg.robot_radius, Color::new(0.0, 1.0, 0.0, 0.5));
+        draw_line(ekf_slam.state[0], ekf_slam.state[1], ekf_slam.state[0] + cfg.robot_radius * ekf_slam.state[2].cos(), ekf_slam.state[1] + cfg.robot_radius * ekf_slam.state[2].sin(), 4.0, Color::new(0.0, 0.0, 0.0, 0.5));
 
         /*
          * UI
          */
         set_default_camera();
-        draw_line(viewport_width, 0.0, viewport_width, viewport_height, 6.0, WHITE);
         draw_text(&format!("pos: ({:.0}, {:.0})", robot.x, robot.y), 25.0, 50.0, 36.0, WHITE);
         draw_text(&format!("angle: {:.2} rad", robot.dir), 25.0, 100.0, 36.0, WHITE);
         draw_text(&format!("lin vel: {:.2}", robot.linear_velocity), 25.0, 150.0, 36.0, WHITE);
