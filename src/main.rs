@@ -171,20 +171,9 @@ async fn main() {
         draw_circle(robot.x, robot.y, cfg.robot_radius - 4.0, DARKPURPLE);
         draw_line(robot.x, robot.y, robot.x + cfg.robot_radius * robot.dir.cos(), robot.y + cfg.robot_radius * robot.dir.sin(), 4.0, SKYBLUE);
 
+        // draw EKF "ghost"
         draw_circle(ekf_slam.state[0], ekf_slam.state[1], cfg.robot_radius, Color::new(0.0, 1.0, 0.0, 0.5));
         draw_line(ekf_slam.state[0], ekf_slam.state[1], ekf_slam.state[0] + cfg.robot_radius * ekf_slam.state[2].cos(), ekf_slam.state[1] + cfg.robot_radius * ekf_slam.state[2].sin(), 4.0, Color::new(0.0, 0.0, 0.0, 0.5));
-
-        /*
-         * UI
-         */
-        set_default_camera();
-        draw_text(&format!("pos: ({:.0}, {:.0})", robot.x, robot.y), 25.0, 50.0, 36.0, WHITE);
-        draw_text(&format!("angle: {:.2} rad", robot.dir), 25.0, 100.0, 36.0, WHITE);
-        draw_text(&format!("lin vel: {:.2}", robot.linear_velocity), 25.0, 150.0, 36.0, WHITE);
-        draw_text(&format!("ang vel: {:.2}", robot.angular_velocity), 25.0, 200.0, 36.0, WHITE);
-
-
-        draw_text(&format!("pos: ({:.0}, {:.0})", ekf_slam.state[0], ekf_slam.state[1]), 25.0 + viewport_width, 50.0, 36.0, WHITE);
 
         next_frame().await
     }
