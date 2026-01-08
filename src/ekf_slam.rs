@@ -82,13 +82,15 @@ impl EkfSlam {
      * Follows EKF sparse prediction equations from
      * https://www.iri.upc.edu/people/jsola/JoanSola/objectes/curs_SLAM/SLAM2D/SLAM%20course.pdf
      */
-    pub fn update(&mut self, observation: &Observation, cfg: &Config) {
-        match self.observed_landmarks.get(&observation.id) {
-            Some(&landmark_index) => {
-                self.correct_landmark(observation, landmark_index, cfg);
-            }
-            None => {
-                self.initialize_landmark(observation, cfg);
+    pub fn update(&mut self, observations: &[Observation], cfg: &Config) {
+        for observation in observations.iter() {
+            match self.observed_landmarks.get(&observation.id) {
+                Some(&landmark_index) => {
+                    self.correct_landmark(observation, landmark_index, cfg);
+                }
+                None => {
+                    self.initialize_landmark(observation, cfg);
+                }
             }
         }
     }

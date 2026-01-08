@@ -65,9 +65,7 @@ async fn main() {
         
         // ekf correction step
         let observations = robot.sense(&landmarks,&obstructions, &cfg);
-        for observation in observations.iter() {
-            ekf_slam.update(observation, &cfg);
-        }
+        ekf_slam.update(&observations, &cfg);
 
         // adding landmarks and obstructions
         let mouse_screen = mouse_position();
