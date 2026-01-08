@@ -7,4 +7,5 @@ This is a work-in-progress Rust implementation of an [EKF-SLAM](https://www.iri.
 - obstructions blocking landmarks
 - use (-π, π] instead of [0, 2π) for angles globally
 - good UI
-- want to do FastSLAM and GraphSLAM later
+- start FastSLAM
+- start GraphSLAM
