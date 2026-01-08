@@ -53,8 +53,8 @@ impl Robot {
         self.angular_velocity *= (-cfg.drag_angular * delta_time).exp();
         
         // add noise to velocity; uses separate variable to keep struct's velocities clean
-        let noisy_linear_velocity = self.linear_velocity + cfg.alpha_linear  * self.linear_velocity.abs() * self.normal.sample(&mut self.rng);
-        let noisy_angular_velocity = self.angular_velocity + cfg.alpha_angular * self.angular_velocity.abs() * self.normal.sample(&mut self.rng);
+        let noisy_linear_velocity = self.linear_velocity + cfg.real_stdev_linear  * self.linear_velocity.abs() * self.normal.sample(&mut self.rng);
+        let noisy_angular_velocity = self.angular_velocity + cfg.real_stdev_angular * self.angular_velocity.abs() * self.normal.sample(&mut self.rng);
 
         // update direction
         self.dir += 0.5 * (noisy_angular_velocity + self.prev_angular_velocity) * delta_time;
@@ -117,8 +117,8 @@ impl Robot {
                 // normalize ground truth bearing to (-PI, PI]
                 let gt_bearing = f32::atan2(relative_angle.sin(), relative_angle.cos());
                 
-                let noisy_range = (gt_range + cfg.sigma_range * self.normal.sample(&mut self.rng)).max(0.0);
-                let mut noisy_bearing = gt_bearing + cfg.sigma_bearing * self.normal.sample(&mut self.rng);
+                let noisy_range = (gt_range + cfg.real_stdev_range * self.normal.sample(&mut self.rng)).max(0.0);
+                let mut noisy_bearing = gt_bearing + cfg.real_stdev_bearing * self.normal.sample(&mut self.rng);
                 noisy_bearing = f32::atan2(noisy_bearing.sin(), noisy_bearing.cos()); // normalization
                 
                 observations.push(

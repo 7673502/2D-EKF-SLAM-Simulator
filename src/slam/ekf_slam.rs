@@ -62,8 +62,8 @@ impl EkfSlam {
         
         // sensor noise
         let r = Matrix2::new(
-            cfg.sigma_range.powi(2), 0.0,
-            0.0, cfg.sigma_bearing.powi(2)
+            cfg.est_stdev_range.powi(2), 0.0,
+            0.0, cfg.est_stdev_bearing.powi(2)
         );
 
         // landmark covariance
@@ -132,8 +132,8 @@ impl EkfSlam {
 
         // sensor noise
         let r = Matrix2::new(
-            cfg.sigma_range.powi(2), 0.0,
-            0.0, cfg.sigma_bearing.powi(2)
+            cfg.est_stdev_range.powi(2), 0.0,
+            0.0, cfg.est_stdev_bearing.powi(2)
         );
 
         // block matrices
@@ -236,8 +236,8 @@ impl Slam for EkfSlam {
         );
 
         // covariance of control noise
-        let sigma_linear_velocity = 0.1 * linear_velocity.abs() + 0.01; // add 0.01 so noise doesn't vanish at 0 speed
-        let sigma_angular_velocity = 0.1 * angular_velocity.abs() + 0.01;
+        let sigma_linear_velocity = cfg.est_stdev_linear * linear_velocity.abs() + 0.01; // add 0.01 so noise doesn't vanish at 0 speed
+        let sigma_angular_velocity = cfg.est_stdev_angular * angular_velocity.abs() + 0.01;
         let n = nalgebra::Matrix2::new(
             (sigma_linear_velocity).powi(2), 0.0,
             0.0, (sigma_angular_velocity).powi(2)

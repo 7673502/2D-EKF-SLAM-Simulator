@@ -8,13 +8,13 @@ pub struct Config {
     pub max_angular_speed: f32,
 
     // process noise scaling factors
-    pub alpha_linear: f32,
-    pub alpha_angular: f32,
+    pub real_stdev_linear: f32,
+    pub real_stdev_angular: f32,
     
     // sensor constants
     pub sensor_range: f32,
-    pub sigma_range: f32,
-    pub sigma_bearing: f32,
+    pub real_stdev_range: f32,
+    pub real_stdev_bearing: f32,
     
     // decay factor (friction) scalings
     pub drag_linear: f32,
@@ -32,6 +32,12 @@ pub struct Config {
 
     // grid
     pub grid_unit: f32,
+
+    // belief standard deviations for EKF SLAM
+    pub est_stdev_linear: f32,
+    pub est_stdev_angular: f32,
+    pub est_stdev_range: f32,
+    pub est_stdev_bearing: f32,
 }
 
 impl Config {
@@ -42,11 +48,11 @@ impl Config {
             robot_radius: 24.0,
             max_linear_speed: 150.0,
             max_angular_speed: 1.5,
-            alpha_linear: 0.03,
-            alpha_angular: 0.01,
+            real_stdev_linear: 0.03,
+            real_stdev_angular: 0.01,
             sensor_range: 200.0,
-            sigma_range: 5.0,
-            sigma_bearing: 0.05,
+            real_stdev_range: 5.0,
+            real_stdev_bearing: 0.05,
             drag_linear: 1.9,
             drag_angular: 4.0,
             landmark_radius: 6.0,
@@ -54,6 +60,10 @@ impl Config {
             obstruction_height: 50.0,
             horizontal_units: 500.0,
             grid_unit: 100.0,
+            est_stdev_linear: 0.03,
+            est_stdev_angular: 0.01,
+            est_stdev_range: 0.1,
+            est_stdev_bearing: 0.1,
         }
     }
 }
