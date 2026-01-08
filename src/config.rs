@@ -62,8 +62,8 @@ impl Config {
             grid_unit: 100.0,
             est_stdev_linear: 0.03,
             est_stdev_angular: 0.01,
-            est_stdev_range: 0.1,
-            est_stdev_bearing: 0.1,
+            est_stdev_range: 5.0,
+            est_stdev_bearing: 0.05,
         }
     }
 }
