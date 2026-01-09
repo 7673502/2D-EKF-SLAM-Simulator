@@ -3,8 +3,10 @@
 This is a work-in-progress Rust implementation of an [EKF-SLAM](https://www.iri.upc.edu/people/jsola/JoanSola/objectes/curs_SLAM/SLAM2D/SLAM%20course.pdf) simulator.
 
 ## To do:
-- web deployment requires using macroquad rand and implementing Box-Mueller in place of using the current external packages
-- SLAM trait
 - good UI
 - start FastSLAM
 - start GraphSLAM
+
+## Notes
+- web deployment is working locally
+
