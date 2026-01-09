@@ -1,8 +1,18 @@
 use macroquad::prelude::*;
-use rand_distr::{Normal, Distribution};
-use ::rand::{rng, rngs::ThreadRng};
-
 use crate::config::Config;
+
+/*
+ * Box-Mueller transform to generate normally distributed values
+ * https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
+ */
+fn sample_normal(mean: f32, std_dev: f32) -> f32 {
+    let u1 = rand::gen_range(0.0f32, 1.0f32).max(1e-6); // don't want to do ln of tiny numbers
+    let u2 = rand::gen_range(0.0f32, 1.0f32);
+
+    let z0 = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
+
+    mean + std_dev * z0 
+}
 
 pub struct Robot {
     pub x: f32,
@@ -12,8 +22,6 @@ pub struct Robot {
     pub angular_velocity: f32,
     prev_linear_velocity: f32,
     prev_angular_velocity: f32,
-    rng: ThreadRng,
-    normal: Normal<f32>,
 }
 
 pub struct Observation {
@@ -38,8 +46,6 @@ impl Robot {
             angular_velocity: 0.0,
             prev_linear_velocity: 0.0,
             prev_angular_velocity: 0.0,
-            rng: rng(),
-            normal: Normal::new(0.0, 1.0).unwrap(),
         }
     }
 
@@ -53,8 +59,8 @@ impl Robot {
         self.angular_velocity *= (-cfg.drag_angular * delta_time).exp();
         
         // add noise to velocity; uses separate variable to keep struct's velocities clean
-        let noisy_linear_velocity = self.linear_velocity + cfg.real_stdev_linear  * self.linear_velocity.abs() * self.normal.sample(&mut self.rng);
-        let noisy_angular_velocity = self.angular_velocity + cfg.real_stdev_angular * self.angular_velocity.abs() * self.normal.sample(&mut self.rng);
+        let noisy_linear_velocity = self.linear_velocity + sample_normal(0.0, cfg.real_stdev_linear  * self.linear_velocity.abs());
+        let noisy_angular_velocity = self.angular_velocity + sample_normal(0.0, cfg.real_stdev_angular * self.angular_velocity.abs());
 
         // update direction
         self.dir += 0.5 * (noisy_angular_velocity + self.prev_angular_velocity) * delta_time;
@@ -117,8 +123,8 @@ impl Robot {
                 // normalize ground truth bearing to (-PI, PI]
                 let gt_bearing = f32::atan2(relative_angle.sin(), relative_angle.cos());
                 
-                let noisy_range = (gt_range + cfg.real_stdev_range * self.normal.sample(&mut self.rng)).max(0.0);
-                let mut noisy_bearing = gt_bearing + cfg.real_stdev_bearing * self.normal.sample(&mut self.rng);
+                let noisy_range = (gt_range + sample_normal(0.0, cfg.real_stdev_range)).max(0.0);
+                let mut noisy_bearing = gt_bearing + sample_normal(0.0, cfg.real_stdev_bearing);
                 noisy_bearing = f32::atan2(noisy_bearing.sin(), noisy_bearing.cos()); // normalization
                 
                 observations.push(
