@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 
+mod utils;
 mod slam;
 mod simulation;
 mod config;
