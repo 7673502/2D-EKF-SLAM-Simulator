@@ -124,7 +124,7 @@ async fn main() {
         }
 
         // background
-        clear_background(BLACK);
+        clear_background(Color::new(0.1, 0.1, 0.1, 1.0));
         
         /*
          * ground truth world
@@ -141,8 +141,8 @@ async fn main() {
                 robot.y + vertical_units / 2.0 + 1.0,
                 start_vertical_gridline + cfg.grid_unit * i as f32,
                 robot.y - vertical_units / 2.0 - 1.0,
-                if (start_vertical_gridline + cfg.grid_unit * i as f32).abs() < 0.1 {4.0} else {2.0},
-                WHITE
+                if (start_vertical_gridline + cfg.grid_unit * i as f32).abs() < 0.1 { 2.0 } else { 1.0 },
+                LIGHTGRAY
             );
         }
 
@@ -155,8 +155,8 @@ async fn main() {
                 start_horizontal_gridline + cfg.grid_unit * i as f32,
                 robot.x - cfg.horizontal_units / 2.0 - 1.0,
                 start_horizontal_gridline + cfg.grid_unit * i as f32,
-                if (start_horizontal_gridline + cfg.grid_unit * i as f32).abs() < 0.1 {4.0} else {2.0},
-                WHITE
+                if (start_horizontal_gridline + cfg.grid_unit * i as f32).abs() < 0.1 { 2.0 } else { 1.0 },
+                LIGHTGRAY
             );
         }
 
@@ -171,8 +171,8 @@ async fn main() {
 
         // draw "robot"; segment shows direction
         draw_circle(robot.x, robot.y, cfg.robot_radius, SKYBLUE);
-        draw_circle(robot.x, robot.y, cfg.robot_radius - 4.0, DARKPURPLE);
-        draw_line(robot.x, robot.y, robot.x + cfg.robot_radius * robot.theta.cos(), robot.y + cfg.robot_radius * robot.theta.sin(), 4.0, SKYBLUE);
+        draw_circle(robot.x, robot.y, cfg.robot_radius - 2.0, DARKPURPLE);
+        draw_line(robot.x, robot.y, robot.x + cfg.robot_radius * robot.theta.cos(), robot.y + cfg.robot_radius * robot.theta.sin(), 2.0, SKYBLUE);
 
         // draw EKF "ghost"
         let (ekf_x, ekf_y, ekf_dir) = ekf_slam.get_state();

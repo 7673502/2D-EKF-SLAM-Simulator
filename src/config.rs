@@ -59,7 +59,7 @@ impl Config {
             obstruction_width: 50.0,
             obstruction_height: 50.0,
             horizontal_units: 500.0,
-            grid_unit: 100.0,
+            grid_unit: 50.0,
             est_stdev_linear: 0.03,
             est_stdev_angular: 0.01,
             est_stdev_range: 5.0,
