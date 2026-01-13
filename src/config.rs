@@ -67,7 +67,7 @@ impl Config {
             est_stdev_angular: 0.01,
             est_stdev_range: 5.0,
             est_stdev_bearing: 0.05,
-            show_landmark_estimates: false,
+            show_landmark_estimates: true,
         }
     }
 }

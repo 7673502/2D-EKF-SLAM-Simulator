@@ -39,7 +39,7 @@ async fn main() {
 
     let mut robot = simulation::Robot::new();
     let mut ekf_slam = EkfSlam::new();
-    let mut fast_slam = FastSlam::new(1000);
+    let mut fast_slam = FastSlam::new(100);
 
     loop {
         let viewport_height = screen_height();
@@ -154,6 +154,7 @@ async fn main() {
         // draw landmark estimates
         if cfg.show_landmark_estimates { 
             ui::draw_slam_landmarks(&ekf_slam, cfg.landmark_radius);
+            ui::draw_slam_landmarks(&fast_slam, cfg.landmark_radius);
         }
 
         /*

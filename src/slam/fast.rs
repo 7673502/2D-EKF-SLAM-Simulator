@@ -212,14 +212,14 @@ impl Slam for FastSlam {
         let mut dir_y = 0.0;
         let mut total_weight = 0.0;
 
-        for p in &self.particles {
-            x += p.x * p.weight;
-            y += p.y * p.weight;
+        for particle in &self.particles {
+            x += particle.x * particle.weight;
+            y += particle.y * particle.weight;
             
-            dir_x += p.theta.cos() * p.weight;
-            dir_y += p.theta.sin() * p.weight;
+            dir_x += particle.theta.cos() * particle.weight;
+            dir_y += particle.theta.sin() * particle.weight;
             
-            total_weight += p.weight;
+            total_weight += particle.weight;
         }
 
         if total_weight < 1e-10 { return (0.0, 0.0, 0.0); }
@@ -228,7 +228,29 @@ impl Slam for FastSlam {
     }
 
     fn get_landmarks(&self) -> Vec<(usize, f32, f32)> {
-        todo!()
+        let mut total_weight = 0.0;
+        let mut hashmap: HashMap<usize, (f32, f32)> = std::collections::HashMap::new();
+        let mut landmarks = Vec::new();
+
+        for particle in &self.particles {
+            total_weight += particle.weight;
+
+            for (id, landmark) in &particle.landmarks {
+                hashmap.entry(*id)
+                    .and_modify(|(x, y)| {
+                        *x += landmark.mu.x * particle.weight;
+                        *y += landmark.mu.y * particle.weight;
+                    })
+                    .or_insert((landmark.mu.x * particle.weight, landmark.mu.y * particle.weight));
+            }
+        }
+
+        for (id, landmark) in &mut hashmap {
+            landmarks.push((*id, landmark.0 / total_weight, landmark.1 / total_weight))
+
+        }
+
+        landmarks
     }
 
     fn color(&self) -> macroquad::prelude::Color {
