@@ -4,7 +4,7 @@ use crate::simulation::{Landmark};
 use crate::slam::Slam;
 
 const SHADOW_OFFSET: f32 = 15.0;
-const SHADOW_COLOR: Color = Color::new(0.0, 0.0, 0.0, 0.3);
+const SHADOW_COLOR: Color = Color::new(0.0, 0.0, 0.0, 1.0);
 
 pub fn draw_gridlines(
     robot_x: f32,
@@ -76,11 +76,12 @@ pub fn draw_landmarks(landmarks: &[Landmark], landmark_radius: f32) {
 
 pub fn draw_robot_shadow(x: f32, y: f32, theta: f32, radius: f32) {
     // shadow
-    draw_rectangle_ex(x - SHADOW_OFFSET, y - SHADOW_OFFSET, 2.0 * radius, 1.5 * radius, DrawRectangleParams { offset: vec2(0.5, 0.5), rotation: theta, color: SHADOW_COLOR });
+    draw_rectangle_ex(x - SHADOW_OFFSET / 2.0, y - SHADOW_OFFSET / 2.0, radius, radius * 2.0, DrawRectangleParams { offset: vec2(0.5, 0.5), rotation: std::f32::consts::FRAC_PI_4, color: SHADOW_COLOR });
+    draw_circle(x - SHADOW_OFFSET, y - SHADOW_OFFSET, radius, SHADOW_COLOR);
 }
 
 pub fn draw_robot(x: f32, y: f32, theta: f32, radius: f32, fill_color: Color, outline_color: Color) {
-    draw_rectangle_ex(x, y, 2.0 * radius, 1.5 * radius, DrawRectangleParams { offset: vec2(0.5, 0.5), rotation: theta, color: fill_color });
+    draw_circle(x, y, radius, fill_color);
     draw_circle(x + 0.5 * radius * theta.cos(), y + 0.5 * radius * theta.sin(), radius / 6.0, outline_color);
 }
 
