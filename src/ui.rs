@@ -55,9 +55,11 @@ pub fn draw_landmarks(landmarks: &[Landmark], landmark_radius: f32) {
 }
 
 pub fn draw_robot(x: f32, y: f32, theta: f32, radius: f32, fill_color: Color, outline_color: Color) {
-    draw_circle(x, y, radius, outline_color);
-    draw_circle(x, y, radius - 2.0, fill_color);
-    draw_line(x, y, x + radius * theta.cos(), y + radius * theta.sin(), 2.0, outline_color);
+    // shadow
+    draw_circle(x - 5.0, y - 5.0, radius, Color::new(0.0, 0.0, 0.0, 1.0));
+
+    draw_circle(x, y, radius, fill_color);
+    draw_circle(x + 0.5 * radius * theta.cos(), y + 0.5 * radius * theta.sin(), radius / 6.0, outline_color);
 }
 
 pub fn draw_slam_state(slam: &dyn Slam, radius: f32) {
