@@ -167,7 +167,11 @@ async fn main() {
          * UI
          */
         set_default_camera();
-        draw_text_ex("testing", 30.0, 40.0, TextParams { font: Some(&font), font_size: 20, ..Default::default() });
+        draw_text_ex("EKF-SLAM", 50.0, 40.0, TextParams { font: Some(&font), font_size: 20, ..Default::default() });
+        draw_text_ex("FastSLAM", 50.0, 70.0, TextParams { font: Some(&font), font_size: 20, ..Default::default() });
+
+        draw_rectangle(22.5, 22.5, 20.0, 20.0, ekf_slam.color());
+        draw_rectangle(22.5, 52.5, 20.0, 20.0, fast_slam.color());
 
         next_frame().await
     }
