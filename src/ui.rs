@@ -74,7 +74,7 @@ pub fn draw_landmarks(landmarks: &[Landmark], landmark_radius: f32) {
     }
 }
 
-pub fn draw_robot_shadow(x: f32, y: f32, theta: f32, radius: f32) {
+pub fn draw_robot_shadow(x: f32, y: f32, radius: f32) {
     // shadow
     draw_line(x, y, x - SHADOW_OFFSET, y - SHADOW_OFFSET, radius * 2.0, SHADOW_COLOR);
     draw_circle(x - SHADOW_OFFSET, y - SHADOW_OFFSET, radius, SHADOW_COLOR);
