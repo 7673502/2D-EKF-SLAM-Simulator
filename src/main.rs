@@ -152,8 +152,9 @@ async fn main() {
         ui::draw_robot(robot.x, robot.y, robot.theta, cfg.robot_radius, BLUE, WHITE);
 
         // SLAM "ghosts"
-        ui::draw_slam_state(&ekf_slam, cfg.robot_radius / 2.0);
-        ui::draw_slam_state(&fast_slam, cfg.robot_radius / 2.0);
+        ui::draw_slam_state(&ekf_slam, cfg.robot_radius * 1.5);
+        ui::draw_slam_state(&fast_slam, cfg.robot_radius * 1.5);
+
 
         // draw landmark estimates
         if cfg.show_landmark_estimates { 
