@@ -20,7 +20,7 @@ fn window_conf() -> Conf {
         window_title: "2D SLAM Simulator".to_owned(),
         window_width: 800,
         window_height: 600,
-        window_resizable: true,
+        window_resizable: false,
         high_dpi: true,
         sample_count: 4,
         ..Default::default()
@@ -176,7 +176,7 @@ async fn main() {
         set_default_camera();
 
         // settings panel
-        ui::draw_settings(50.0);
+        ui::draw_settings(50.0, &font);
 
         // legend
         ui::draw_legend(&font);
