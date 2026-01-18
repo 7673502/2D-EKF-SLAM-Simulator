@@ -3,8 +3,7 @@ use macroquad::prelude::*;
 use crate::simulation::{Landmark};
 use crate::slam::{EkfSlam, FastSlam, Slam};
 
-const SHADOW_OFFSET: f32 = 15.0;
-const SHADOW_COLOR: Color = Color::new(0.0, 0.0, 0.0, 1.0);
+const SHADOW_OFFSET: f32 = 16.0;
 const FONT_SIZE: u16 = 20;
 const LINE_SPACING: f32 = 30.0;
 
@@ -48,19 +47,15 @@ pub fn draw_gridlines(
 
 pub fn draw_obstructions_shadows(obstructions: &[Rect]) {
     for obstruction in obstructions.iter() {
-        draw_rectangle(obstruction.x - SHADOW_OFFSET, obstruction.y - SHADOW_OFFSET, obstruction.w, obstruction.h, SHADOW_COLOR);
-        draw_triangle(
-            vec2(obstruction.x - SHADOW_OFFSET, obstruction.y + obstruction.h - SHADOW_OFFSET),
-            vec2(obstruction.x, obstruction.y + obstruction.h),
-            vec2(obstruction.x, obstruction.y + obstruction.h - SHADOW_OFFSET),
-            SHADOW_COLOR
-        );
-        draw_triangle(
-            vec2(obstruction.x + obstruction.w - SHADOW_OFFSET, obstruction.y - SHADOW_OFFSET),
-            vec2(obstruction.x + obstruction.w, obstruction.y),
-            vec2(obstruction.x + obstruction.w - SHADOW_OFFSET, obstruction.y),
-            SHADOW_COLOR
-        );
+        for i in 0..SHADOW_OFFSET as i32 {
+            draw_rectangle(
+                obstruction.x - (i as f32),
+                obstruction.y - (i as f32),
+                obstruction.w,
+                obstruction.h,
+                Color::new(0.0, 0.0, 0.0, 1.0 / (i as f32 + 1.0))
+            );
+        }
     }
 }
 
@@ -72,8 +67,14 @@ pub fn draw_obstructions(obstructions: &[Rect]) {
 
 pub fn draw_landmarks_shadows(landmarks: &[Landmark], landmark_radius: f32) {
     for landmark in landmarks.iter() {
-        draw_line(landmark.x, landmark.y, landmark.x - SHADOW_OFFSET, landmark.y - SHADOW_OFFSET, landmark_radius * 2.0, SHADOW_COLOR);
-        draw_circle(landmark.x - SHADOW_OFFSET, landmark.y - SHADOW_OFFSET, landmark_radius, SHADOW_COLOR);
+        for i in 0..(SHADOW_OFFSET as i32 / 2) {
+            draw_circle(
+                landmark.x - (i as f32),
+                landmark.y - (i as f32),
+                landmark_radius,
+                Color::new(0.0, 0.0, 0.0, 1.0 / (i as f32 + 1.0))
+            );
+        }
     }
 }
 
@@ -85,8 +86,14 @@ pub fn draw_landmarks(landmarks: &[Landmark], landmark_radius: f32) {
 
 pub fn draw_robot_shadow(x: f32, y: f32, radius: f32) {
     // shadow
-    draw_line(x, y, x - SHADOW_OFFSET, y - SHADOW_OFFSET, radius * 2.0, SHADOW_COLOR);
-    draw_circle(x - SHADOW_OFFSET, y - SHADOW_OFFSET, radius, SHADOW_COLOR);
+    for i in 0..(SHADOW_OFFSET as i32 / 2) {
+        draw_circle(
+            x - (i as f32),
+            y - (i as f32),
+            radius,
+            Color::new(0.0, 0.0, 0.0, 1.0 / (i as f32 + 1.0))
+        );
+    }
 }
 
 pub fn draw_robot(x: f32, y: f32, theta: f32, radius: f32, fill_color: Color, eye_color: Color) {
