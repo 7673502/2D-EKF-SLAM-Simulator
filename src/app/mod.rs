@@ -1,4 +1,5 @@
 pub mod hud;
+pub mod input;
 pub mod renderer;
 pub mod user_settings;
 

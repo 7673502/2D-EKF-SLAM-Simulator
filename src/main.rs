@@ -12,6 +12,8 @@ use user_settings::UserSettings;
 use simulation::Landmark;
 use slam::{EkfSlam, FastSlam, Slam};
 
+use crate::app::input;
+
 // loads font
 const FONT_BYTES: &[u8] = include_bytes!("../assets/fonts/GoogleSansCode-Medium.ttf");
 
@@ -48,6 +50,9 @@ async fn main() {
     let mut fast_slam = FastSlam::new(100);
 
     loop {
+        /*
+         * setup
+         */
         let viewport_height = screen_height();
         let viewport_width = screen_width();
         
@@ -59,20 +64,16 @@ async fn main() {
         
         let delta_time: f32 = get_frame_time();
 
-        // movement
-        if is_key_down(KeyCode::Up) {
-            robot.linear_velocity += cfg.linear_acc * delta_time;
-        }
-        if is_key_down(KeyCode::Down) {
-            robot.linear_velocity -= cfg.linear_acc * delta_time;
-        }
-        if is_key_down(KeyCode::Right) {
-            robot.angular_velocity -= cfg.angular_acc * delta_time;
-        }
-        if is_key_down(KeyCode::Left) {
-            robot.angular_velocity += cfg.angular_acc * delta_time;
-        }
+        /*
+         * user input
+         */
+        input::movement_input(&mut robot, &cfg, delta_time);
+        input::obstructions_input(&gt_camera, &mut obstructions, &cfg);
+        input::landmarks_input(&gt_camera, &mut landmarks, &cfg);
         
+        /*
+         * update logic
+         */
         // ground truth robot update
         robot.update(delta_time, &cfg, &obstructions);
 
@@ -84,64 +85,11 @@ async fn main() {
         let observations = robot.sense(&landmarks,&obstructions, &cfg);
         ekf_slam.update(&observations, &cfg);
         fast_slam.update(&observations, &cfg);
-
-        // adding landmarks and obstructions
-        let mouse_screen = mouse_position();
-        let mouse_world = gt_camera.screen_to_world(vec2(mouse_screen.0, mouse_screen.1));
-
-        if mouse_screen.0 < viewport_width {
-            if is_mouse_button_released(MouseButton::Left) {
-                // delete the obstruction if mouse is touching it
-                let mut removed = false;
-                for i in 0..obstructions.len() {
-                    if obstructions[i].contains(mouse_world) {
-                        obstructions.remove(i);
-                        removed = true;
-                        break;
-                    }
-                }
-                if !removed {
-                    obstructions.push(
-                        Rect::new(
-                            mouse_world.x - cfg.obstruction_width / 2.0,
-                            mouse_world.y - cfg.obstruction_height / 2.0,
-                            cfg.obstruction_width,
-                            cfg.obstruction_height
-                        )
-                    );
-                }
-            }
-            if is_mouse_button_released(MouseButton::Right) {
-                let mut removed = false;
-                for (i, landmark) in landmarks.iter().enumerate() {
-                    if mouse_world.x < landmark.x + cfg.landmark_radius &&
-                       mouse_world.x > landmark.x - cfg.landmark_radius &&
-                       mouse_world.y < landmark.y + cfg.landmark_radius &&
-                       mouse_world.y > landmark.y - cfg.landmark_radius {
-                        landmarks.remove(i);
-                        removed = true;
-                        break;
-                    }
-                }
-                if !removed {
-                    let id = landmarks.last().map(|l| l.id + 1).unwrap_or(0);
-                    landmarks.push(
-                        Landmark {
-                            id,
-                            x: mouse_world.x, 
-                            y: mouse_world.y 
-                        }
-                    );
-                }
-            }
-        }
-
-        // background
-        clear_background(Color::new(0.1, 0.1, 0.1, 1.0));
         
         /*
          * simulation rendering
          */
+        clear_background(Color::new(0.1, 0.1, 0.1, 1.0));
         set_camera(&gt_camera);
         
         // gridlines
@@ -174,17 +122,12 @@ async fn main() {
         }
 
         /*
-         * UI
+         * HUD
          */
         set_default_camera();
 
-        // settings panel
         hud::draw_settings(&font);
-
-        // legend
         hud::draw_legend(&font);
-
-        // settings cog
         hud::draw_settings_cog(20.0, 20.0, 5.0);
 
         next_frame().await
