@@ -25,6 +25,7 @@ pub fn draw_legend(font: &Font) {
             TextParams {
                 font: Some(font),
                 font_size: FONT_SIZE,
+                color: LIGHTGRAY,
                 ..Default::default()
             }
         );
