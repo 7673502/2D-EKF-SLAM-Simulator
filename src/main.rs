@@ -6,7 +6,7 @@ mod utils;
 mod simulation;
 mod slam; 
 
-use app::{ui, user_settings};
+use app::{hud, renderer, user_settings};
 use config::Config;
 use user_settings::UserSettings;
 use simulation::Landmark;
@@ -145,32 +145,32 @@ async fn main() {
         set_camera(&gt_camera);
         
         // gridlines
-        ui::draw_gridlines(robot.x, robot.y, viewport_width, viewport_height, cfg.horizontal_units, cfg.grid_unit);
+        renderer::draw_gridlines(robot.x, robot.y, viewport_width, viewport_height, cfg.horizontal_units, cfg.grid_unit);
 
         // shadows
-        ui::draw_landmarks_shadows(&landmarks, cfg.landmark_radius);
-        ui::draw_robot_shadow(robot.x, robot.y, cfg.robot_radius);
-        ui::draw_obstructions_shadows(&obstructions);
+        renderer::draw_landmarks_shadows(&landmarks, cfg.landmark_radius);
+        renderer::draw_robot_shadow(robot.x, robot.y, cfg.robot_radius);
+        renderer::draw_obstructions_shadows(&obstructions);
 
         // draw obstructions and landmarks
-        ui::draw_obstructions(&obstructions);
-        ui::draw_landmarks(&landmarks, cfg.landmark_radius);
+        renderer::draw_obstructions(&obstructions);
+        renderer::draw_landmarks(&landmarks, cfg.landmark_radius);
 
         // draw "robot"
-        ui::draw_robot(robot.x, robot.y, robot.theta, cfg.robot_radius, BLUE, WHITE);
+        renderer::draw_robot(robot.x, robot.y, robot.theta, cfg.robot_radius, BLUE, WHITE);
 
         // SLAM "ghosts"
-        ui::draw_slam_state(&ekf_slam, cfg.robot_radius * 1.5);
-        ui::draw_slam_state(&fast_slam, cfg.robot_radius * 1.5);
+        renderer::draw_slam_state(&ekf_slam, cfg.robot_radius * 1.5);
+        renderer::draw_slam_state(&fast_slam, cfg.robot_radius * 1.5);
 
 
         // draw landmark estimates
         if user_settings.show_ekf_state { 
-            ui::draw_slam_landmarks(&ekf_slam, cfg.landmark_radius);
+            renderer::draw_slam_landmarks(&ekf_slam, cfg.landmark_radius);
         }
 
         if user_settings.show_ekf_state { 
-            ui::draw_slam_landmarks(&fast_slam, cfg.landmark_radius);
+            renderer::draw_slam_landmarks(&fast_slam, cfg.landmark_radius);
         }
 
         /*
@@ -179,13 +179,13 @@ async fn main() {
         set_default_camera();
 
         // settings panel
-        ui::draw_settings(&font);
+        hud::draw_settings(&font);
 
         // legend
-        ui::draw_legend(&font);
+        hud::draw_legend(&font);
 
         // settings cog
-        ui::draw_settings_cog(20.0, 20.0, 5.0);
+        hud::draw_settings_cog(20.0, 20.0, 5.0);
 
         next_frame().await
     }
