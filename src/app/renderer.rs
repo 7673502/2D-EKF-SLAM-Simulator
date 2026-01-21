@@ -1,8 +1,8 @@
 use macroquad::prelude::*;
 
 use crate::simulation::{Landmark};
-use crate::slam::{EkfSlam, FastSlam, Slam};
-use super::{FONT_SIZE, LINE_SPACING, SHADOW_OFFSET};
+use crate::slam::{Slam};
+use super::{SHADOW_OFFSET};
 
 pub fn draw_gridlines(
     robot_x: f32,
