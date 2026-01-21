@@ -112,7 +112,7 @@ pub fn draw_settings(font: &Font) {
 
 pub fn draw_cog() {
     let effective_radius = COG_R + COG_THICKNESS;
-    let color = if is_cog_hovered() { GRAY } else { LIGHTGRAY };
+    let color = if is_cog_hovered() { DARKGRAY } else { LIGHTGRAY };
     
     draw_circle_lines(COG_X, COG_Y, COG_R, COG_THICKNESS, color);
 
