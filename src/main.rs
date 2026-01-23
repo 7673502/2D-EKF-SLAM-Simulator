@@ -132,7 +132,7 @@ async fn main() {
          */
         set_default_camera();
 
-        if pause { hud::draw_settings(&font); }
+        if pause { hud::draw_settings(&font, &mut user_settings); }
         hud::draw_legend(&font);
         
         hud::draw_cog();

@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use crate::app::user_settings::UserSettings;
 use crate::slam::{EkfSlam, FastSlam};
 use super::{FONT_SIZE, LINE_SPACING};
 
@@ -39,7 +40,7 @@ pub fn draw_legend(font: &Font) {
     }
 }
 
-pub fn draw_settings(font: &Font) {
+pub fn draw_settings(font: &Font, user_settings: &mut UserSettings) {
     let offset = screen_width() / 4.0;
     let padding = 30.0;
 
@@ -50,14 +51,13 @@ pub fn draw_settings(font: &Font) {
     let panel_center_y = screen_height() / 2.0;
 
     // text
-    let text = [
-        "EKF-SLAM State",
-        "FastSLAM State",
-        "FastSLAM 2.0 State",
-        "EKF-SLAM landmarks",
-        "FastSLAM landmarks",
-        "FastSLAM 2.0 landmarks",
-
+    let mut text = [
+        ("EKF-SLAM State", &mut user_settings.show_ekf_state),
+        ("FastSLAM State", &mut user_settings.show_fast_state),
+        ("FastSLAM 2.0 State", &mut user_settings.show_fast2_state),
+        ("EKF-SLAM landmarks", &mut user_settings.show_ekf_landmarks),
+        ("FastSLAM landmarks", &mut user_settings.show_fast_landmarks),
+        ("FastSLAM 2.0 landmarks", &mut user_settings.show_fast2_landmarks),
     ];
 
     draw_rectangle_ex(
@@ -83,30 +83,60 @@ pub fn draw_settings(font: &Font) {
         }
     );
 
-    for (i, s) in text.iter().enumerate() {
+    for (i, (label, value)) in text.iter_mut().enumerate() {
+        // checkbox position
+        let checkbox_x = offset + padding;
+        let checkbox_y = panel_center_y - (2.0 - i as f32) * LINE_SPACING;
+        let checkbox_size = 20.0;
+
+        // check if hovered
+        let (mouse_x, mouse_y) = mouse_position();
+        let is_hovered = mouse_x < panel_center_x + w / 2.0 - padding &&
+                         mouse_x > checkbox_x - checkbox_size / 2.0 &&
+                         mouse_y < checkbox_y + checkbox_size / 2.0 &&
+                         mouse_y > checkbox_y - checkbox_size / 2.0;
+
+        if is_hovered && is_mouse_button_released(MouseButton::Left) {
+            **value = !**value;
+        }
+
+        let color = if is_hovered { WHITE } else { LIGHTGRAY };
+
+        // draw box + label
+        if **value {
+            draw_line(
+                checkbox_x - checkbox_size / 4.0,
+                checkbox_y + checkbox_size / 4.0,
+                checkbox_x + checkbox_size / 4.0,
+                checkbox_y - checkbox_size / 4.0,
+                2.0,
+                color
+            );
+        }
         draw_rectangle_lines_ex(
-            offset + padding,
-            panel_center_y - (2.0 - i as f32) * LINE_SPACING,
-            20.0,
-            20.0,
+            checkbox_x,
+            checkbox_y,
+            checkbox_size,
+            checkbox_size,
             2.0,
             DrawRectangleParams { 
                 offset: vec2(0.5, 0.5),
-                color: LIGHTGRAY,
+                color,
                 ..Default::default()
             }
         );
         draw_text_ex(
-            s,
-            offset + padding + 20.0,
+            label,
+            offset + padding + checkbox_size,
             panel_center_y - (1.5 - i as f32) * LINE_SPACING - 7.5,
             TextParams {
                 font: Some(font),
                 font_size: FONT_SIZE,
-                color: LIGHTGRAY,
+                color,
                 ..Default::default()
             }
         );
+
     }
 }
 
