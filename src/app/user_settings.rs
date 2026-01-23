@@ -2,12 +2,12 @@ pub struct UserSettings {
     // states
     pub show_ekf_state: bool,
     pub show_fast_state: bool,
-    pub show_fast2_state: bool,
+    pub show_graph_state: bool,
 
     // landmark estimates
     pub show_ekf_landmarks: bool,
     pub show_fast_landmarks: bool,
-    pub show_fast2_landmarks: bool,
+    pub show_graph_landmarks: bool,
 }
 
 impl Default for UserSettings {
@@ -17,8 +17,8 @@ impl Default for UserSettings {
             show_fast_state: true,
             show_ekf_landmarks: true,
             show_fast_landmarks: true,
-            show_fast2_state: true,
-            show_fast2_landmarks: true,
+            show_graph_state: true,
+            show_graph_landmarks: true,
         }
     }
 }

@@ -54,10 +54,10 @@ pub fn draw_settings(font: &Font, user_settings: &mut UserSettings) {
     let mut text = [
         ("EKF-SLAM State", &mut user_settings.show_ekf_state),
         ("FastSLAM State", &mut user_settings.show_fast_state),
-        ("FastSLAM 2.0 State", &mut user_settings.show_fast2_state),
+        ("GraphSLAM State", &mut user_settings.show_graph_state),
         ("EKF-SLAM landmarks", &mut user_settings.show_ekf_landmarks),
         ("FastSLAM landmarks", &mut user_settings.show_fast_landmarks),
-        ("FastSLAM 2.0 landmarks", &mut user_settings.show_fast2_landmarks),
+        ("GraphSLAM landmarks", &mut user_settings.show_graph_landmarks),
     ];
 
     draw_rectangle_ex(
