@@ -52,3 +52,19 @@ Hit the setting button in the top left to choose which algorithms' pose and land
 
 [MIT License](LICENSE).
 
+## Known Limitations & Design Notes
+
+- **Known Data Association**: Landmark correspondence is currently provided directly via ground-truth IDs (`Observation.id = Landmark.id`). Unknown data association using Mahalanobis distance gating ($\chi^2$ test) with Individual Compatibility Nearest Neighbor (ICNN) or Joint Compatibility Branch and Bound (JCBB) is not yet implemented.
+- **Uncertainty Visualization**: The Macroquad renderer displays point estimates for the robot and landmarks, but does not yet draw dynamic 2-sigma/3-sigma covariance confidence ellipses derived from the EKF covariance matrix $\mathbf{P}$.
+- **FastSLAM Resampling Frequency**: FastSLAM 1.0 currently resamples on every observation frame. Implementing selective resampling triggered by Effective Sample Size ($N_{\text{eff}} < N / 2$) would reduce particle depletion over prolonged runs.
+- **Matrix Inversion Resilience**: Innovation matrix inversions currently use `.unwrap()` calls, which can be made more resilient against ill-conditioned measurement matrices.
+
+## Roadmap
+
+- [ ] Add dynamic covariance error ellipses for robot and landmark state estimates in the renderer
+- [ ] Implement unknown data association with Mahalanobis distance gating (ICNN / JCBB)
+- [ ] Implement selective resampling for FastSLAM based on effective sample size ($N_{\text{eff}}$)
+- [ ] Implement FastSLAM 2.0 (incorporating current observations into the proposal distribution)
+- [ ] Implement GraphSLAM (pose graph optimization with factor graphs and non-linear least squares)
+
+
