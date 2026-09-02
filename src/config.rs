@@ -41,8 +41,8 @@ pub struct Config {
     pub est_stdev_bearing: f32,
 }
 
-impl Config {
-    pub fn default() -> Self {
+impl Default for Config {
+    fn default() -> Self {
         Self {
             linear_acc: 96.0,
             angular_acc: 6.0,

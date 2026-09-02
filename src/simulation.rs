@@ -145,7 +145,7 @@ impl Robot {
      * Liang Barsky algorithm to check if segment intersects rectangle
      * https://en.wikipedia.org/wiki/Liang%E2%80%93Barsky_algorithm
      */
-    fn liang_barsky(&self, landmark: &Landmark, rect: &Rect) -> bool {
+    pub(crate) fn liang_barsky(&self, landmark: &Landmark, rect: &Rect) -> bool {
         let x_min = rect.x;
         let y_min = rect.y;
         let x_max = rect.x + rect.w;

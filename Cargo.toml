@@ -6,3 +6,7 @@ edition = "2024"
 [dependencies]
 macroquad = "0.4.14"
 nalgebra = "0.34.1"
+
+[lib]
+name = "slam_simulator"
+path = "src/lib.rs"

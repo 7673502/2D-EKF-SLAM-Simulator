@@ -1,18 +1,10 @@
 use macroquad::prelude::*;
 
-mod app;
-mod config;
-mod simulation;
-mod slam;
-mod utils;
-
-use app::{hud, renderer, user_settings};
-use config::Config;
-use simulation::Landmark;
-use slam::{EkfSlam, FastSlam, Slam};
-use user_settings::UserSettings;
-
-use crate::app::{hud::is_cog_hovered, input};
+use slam_simulator::app::user_settings::UserSettings;
+use slam_simulator::app::{hud, hud::is_cog_hovered, input, renderer};
+use slam_simulator::config::Config;
+use slam_simulator::simulation::{self, Landmark};
+use slam_simulator::slam::{EkfSlam, FastSlam, Slam};
 
 // loads font
 const FONT_BYTES: &[u8] = include_bytes!("../assets/fonts/GoogleSansCode-Medium.ttf");
