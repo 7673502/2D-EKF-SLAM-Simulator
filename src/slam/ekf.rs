@@ -327,3 +327,583 @@ impl Slam for EkfSlam {
         Self::COLOR
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::f32::consts::{FRAC_PI_2, PI};
+
+    #[test]
+    fn test_ekf_new_initial_state_vector_size_and_values() {
+        let ekf = EkfSlam::new();
+        assert_eq!(ekf.state.len(), 3);
+        assert_eq!(ekf.state[0], 0.0);
+        assert_eq!(ekf.state[1], 0.0);
+        assert_eq!(ekf.state[2], 0.0);
+    }
+
+    #[test]
+    fn test_ekf_new_initial_covariance_symmetry_and_scale() {
+        let ekf = EkfSlam::new();
+        assert_eq!(ekf.covariance.nrows(), 3);
+        assert_eq!(ekf.covariance.ncols(), 3);
+        for i in 0..3 {
+            for j in 0..3 {
+                if i == j {
+                    assert!((ekf.covariance[(i, j)] - 0.01).abs() < 1e-6);
+                } else {
+                    assert_eq!(ekf.covariance[(i, j)], 0.0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_ekf_new_observed_landmarks_empty() {
+        let ekf = EkfSlam::new();
+        assert!(ekf.observed_landmarks.is_empty());
+    }
+
+    #[test]
+    fn test_ekf_get_state_returns_robot_pose() {
+        let mut ekf = EkfSlam::new();
+        ekf.state[0] = 1.0;
+        ekf.state[1] = 2.0;
+        ekf.state[2] = 0.5;
+        let (x, y, theta) = ekf.get_state();
+        assert_eq!(x, 1.0);
+        assert_eq!(y, 2.0);
+        assert_eq!(theta, 0.5);
+    }
+
+    #[test]
+    fn test_ekf_get_landmarks_empty_on_fresh_instance() {
+        let ekf = EkfSlam::new();
+        assert!(ekf.get_landmarks().is_empty());
+    }
+
+    #[test]
+    fn test_ekf_predict_pure_translation_straight_forward() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.predict(10.0, 0.0, 1.0, &cfg);
+        assert!((ekf.state[0] - 10.0).abs() < 1e-4);
+        assert!(ekf.state[1].abs() < 1e-4);
+        assert!(ekf.state[2].abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_ekf_predict_pure_translation_with_heading() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.state[2] = FRAC_PI_2;
+        ekf.predict(10.0, 0.0, 1.0, &cfg);
+        assert!(ekf.state[0].abs() < 1e-4);
+        assert!((ekf.state[1] - 10.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_ekf_predict_pure_rotation_in_place() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.predict(0.0, 1.0, 1.0, &cfg);
+        assert!(ekf.state[0].abs() < 1e-4);
+        assert!(ekf.state[1].abs() < 1e-4);
+        assert!((ekf.state[2] - 1.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_ekf_predict_stationary_preserves_mean_increases_covariance() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        let initial_trace = ekf.covariance.trace();
+        ekf.predict(0.0, 0.0, 1.0, &cfg);
+        assert_eq!(ekf.state[0], 0.0);
+        assert_eq!(ekf.state[1], 0.0);
+        assert_eq!(ekf.state[2], 0.0);
+        assert!(ekf.covariance.trace() > initial_trace);
+    }
+
+    #[test]
+    fn test_ekf_predict_heading_wraparound_positive_pi() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.state[2] = PI - 0.1;
+        ekf.predict(0.0, 0.5, 1.0, &cfg);
+        assert!(ekf.state[2] > -PI && ekf.state[2] <= PI);
+        assert!(ekf.state[2] < 0.0);
+    }
+
+    #[test]
+    fn test_ekf_predict_heading_wraparound_negative_pi() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.state[2] = -PI + 0.1;
+        ekf.predict(0.0, -0.5, 1.0, &cfg);
+        assert!(ekf.state[2] > -PI && ekf.state[2] <= PI);
+        assert!(ekf.state[2] > 0.0);
+    }
+
+    #[test]
+    fn test_ekf_predict_preserves_covariance_symmetry() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.predict(5.0, 0.5, 0.5, &cfg);
+        for i in 0..ekf.covariance.nrows() {
+            for j in 0..ekf.covariance.ncols() {
+                assert!((ekf.covariance[(i, j)] - ekf.covariance[(j, i)]).abs() < 1e-5);
+            }
+        }
+    }
+
+    #[test]
+    fn test_ekf_predict_preserves_covariance_positive_definiteness() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.predict(10.0, 0.2, 0.5, &cfg);
+        let eigen = ekf.covariance.symmetric_eigen();
+        assert!(eigen.eigenvalues.iter().all(|&e| e > 0.0));
+    }
+
+    #[test]
+    fn test_ekf_predict_invariant_landmark_positions() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.initialize_landmark(
+            &Observation {
+                id: 0,
+                range: 10.0,
+                bearing: 0.0,
+            },
+            &cfg,
+        );
+        let lx_before = ekf.state[3];
+        let ly_before = ekf.state[4];
+        ekf.predict(5.0, 0.2, 1.0, &cfg);
+        assert_eq!(ekf.state[3], lx_before);
+        assert_eq!(ekf.state[4], ly_before);
+    }
+
+    #[test]
+    fn test_ekf_predict_invariant_landmark_covariance_submatrix() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.initialize_landmark(
+            &Observation {
+                id: 0,
+                range: 10.0,
+                bearing: 0.0,
+            },
+            &cfg,
+        );
+        let p_ll_before = ekf.covariance.fixed_view::<2, 2>(3, 3).into_owned();
+        ekf.predict(5.0, 0.2, 1.0, &cfg);
+        let p_ll_after = ekf.covariance.fixed_view::<2, 2>(3, 3);
+        assert_eq!(p_ll_before, p_ll_after);
+    }
+
+    #[test]
+    fn test_ekf_predict_propagates_robot_landmark_cross_covariance() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.initialize_landmark(
+            &Observation {
+                id: 0,
+                range: 10.0,
+                bearing: 0.0,
+            },
+            &cfg,
+        );
+        let p_rm_before = ekf.covariance.view((0, 3), (3, 2)).into_owned();
+        ekf.predict(5.0, 0.2, 1.0, &cfg);
+        let p_rm_after = ekf.covariance.view((0, 3), (3, 2)).into_owned();
+        assert_ne!(p_rm_before, p_rm_after);
+    }
+
+    #[test]
+    fn test_ekf_predict_preserves_state_and_covariance_dimensions() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.initialize_landmark(
+            &Observation {
+                id: 0,
+                range: 10.0,
+                bearing: 0.0,
+            },
+            &cfg,
+        );
+        ekf.predict(2.0, 0.1, 0.5, &cfg);
+        assert_eq!(ekf.state.len(), 5);
+        assert_eq!(ekf.covariance.shape(), (5, 5));
+    }
+
+    #[test]
+    fn test_ekf_initialize_single_landmark_increases_state_size() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.initialize_landmark(
+            &Observation {
+                id: 10,
+                range: 20.0,
+                bearing: 0.5,
+            },
+            &cfg,
+        );
+        assert_eq!(ekf.state.len(), 5);
+    }
+
+    #[test]
+    fn test_ekf_initialize_single_landmark_mean_matches_observation_geometry() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.state[0] = 5.0;
+        ekf.state[1] = 7.0;
+        ekf.state[2] = 0.2;
+        let obs = Observation {
+            id: 1,
+            range: 15.0,
+            bearing: 0.3,
+        };
+        let (expected_x, expected_y) = relative_to_absolute(5.0, 7.0, 0.2, 15.0, 0.3);
+        ekf.initialize_landmark(&obs, &cfg);
+        assert!((ekf.state[3] - expected_x).abs() < 1e-4);
+        assert!((ekf.state[4] - expected_y).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_ekf_initialize_single_landmark_increases_covariance_dimensions() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.initialize_landmark(
+            &Observation {
+                id: 1,
+                range: 10.0,
+                bearing: 0.0,
+            },
+            &cfg,
+        );
+        assert_eq!(ekf.covariance.shape(), (5, 5));
+    }
+
+    #[test]
+    fn test_ekf_initialize_single_landmark_covariance_block_symmetry() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.initialize_landmark(
+            &Observation {
+                id: 1,
+                range: 10.0,
+                bearing: 0.4,
+            },
+            &cfg,
+        );
+        assert!((ekf.covariance[(3, 4)] - ekf.covariance[(4, 3)]).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_ekf_initialize_single_landmark_cross_covariance_consistency() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.initialize_landmark(
+            &Observation {
+                id: 1,
+                range: 10.0,
+                bearing: 0.4,
+            },
+            &cfg,
+        );
+        for r in 0..3 {
+            for c in 3..5 {
+                assert!((ekf.covariance[(r, c)] - ekf.covariance[(c, r)]).abs() < 1e-5);
+            }
+        }
+    }
+
+    #[test]
+    fn test_ekf_initialize_multiple_landmarks_sequential_mapping() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.initialize_landmark(
+            &Observation {
+                id: 1,
+                range: 10.0,
+                bearing: 0.0,
+            },
+            &cfg,
+        );
+        ekf.initialize_landmark(
+            &Observation {
+                id: 2,
+                range: 20.0,
+                bearing: 0.5,
+            },
+            &cfg,
+        );
+        assert_eq!(ekf.state.len(), 7);
+        assert_eq!(ekf.covariance.shape(), (7, 7));
+        assert_eq!(ekf.observed_landmarks.len(), 2);
+    }
+
+    #[test]
+    fn test_ekf_correct_perfect_measurement_reduces_pose_covariance_trace() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        let obs = Observation {
+            id: 1,
+            range: 10.0,
+            bearing: 0.0,
+        };
+        ekf.initialize_landmark(&obs, &cfg);
+        ekf.predict(1.0, 0.0, 1.0, &cfg);
+        let pose_cov_trace_before = ekf.covariance.fixed_view::<3, 3>(0, 0).trace();
+        let (r, b) = absolute_to_relative(
+            ekf.state[0],
+            ekf.state[1],
+            ekf.state[2],
+            ekf.state[3],
+            ekf.state[4],
+        );
+        ekf.correct_landmark(
+            &Observation {
+                id: 1,
+                range: r,
+                bearing: b,
+            },
+            3,
+            &cfg,
+        );
+        let pose_cov_trace_after = ekf.covariance.fixed_view::<3, 3>(0, 0).trace();
+        assert!(pose_cov_trace_after < pose_cov_trace_before);
+    }
+
+    #[test]
+    fn test_ekf_correct_perfect_measurement_reduces_landmark_covariance_trace() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        let obs = Observation {
+            id: 1,
+            range: 10.0,
+            bearing: 0.0,
+        };
+        ekf.initialize_landmark(&obs, &cfg);
+        let lm_trace_before = ekf.covariance.fixed_view::<2, 2>(3, 3).trace();
+        ekf.correct_landmark(&obs, 3, &cfg);
+        let lm_trace_after = ekf.covariance.fixed_view::<2, 2>(3, 3).trace();
+        assert!(lm_trace_after < lm_trace_before);
+    }
+
+    #[test]
+    fn test_ekf_correct_bearing_innovation_wraparound_boundary() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.state[2] = PI - 0.05;
+        let obs = Observation {
+            id: 1,
+            range: 10.0,
+            bearing: -PI + 0.05,
+        };
+        ekf.initialize_landmark(&obs, &cfg);
+        ekf.correct_landmark(&obs, 3, &cfg);
+        assert!(!ekf.state[0].is_nan() && !ekf.state[1].is_nan() && !ekf.state[2].is_nan());
+    }
+
+    #[test]
+    fn test_ekf_correct_innovation_adjusts_robot_pose_towards_landmark() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.initialize_landmark(
+            &Observation {
+                id: 1,
+                range: 10.0,
+                bearing: 0.0,
+            },
+            &cfg,
+        );
+        ekf.predict(5.0, 0.0, 1.0, &cfg);
+        let obs_shorter = Observation {
+            id: 1,
+            range: 4.0,
+            bearing: 0.0,
+        };
+        let x_before = ekf.state[0];
+        ekf.correct_landmark(&obs_shorter, 3, &cfg);
+        assert!(ekf.state[0] > x_before);
+    }
+
+    #[test]
+    fn test_ekf_correct_preserves_covariance_symmetry() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        let obs = Observation {
+            id: 1,
+            range: 10.0,
+            bearing: 0.2,
+        };
+        ekf.initialize_landmark(&obs, &cfg);
+        ekf.correct_landmark(
+            &Observation {
+                id: 1,
+                range: 9.8,
+                bearing: 0.22,
+            },
+            3,
+            &cfg,
+        );
+        for i in 0..5 {
+            for j in 0..5 {
+                assert!((ekf.covariance[(i, j)] - ekf.covariance[(j, i)]).abs() < 1e-5);
+            }
+        }
+    }
+
+    #[test]
+    fn test_ekf_correct_preserves_positive_definiteness() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        let obs = Observation {
+            id: 1,
+            range: 10.0,
+            bearing: 0.2,
+        };
+        ekf.initialize_landmark(&obs, &cfg);
+        ekf.correct_landmark(
+            &Observation {
+                id: 1,
+                range: 9.8,
+                bearing: 0.22,
+            },
+            3,
+            &cfg,
+        );
+        let eigen = ekf.covariance.symmetric_eigen();
+        assert!(eigen.eigenvalues.iter().all(|&e| e > 0.0));
+    }
+
+    #[test]
+    fn test_ekf_correct_cross_correlation_updates_unobserved_landmarks() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.initialize_landmark(
+            &Observation {
+                id: 1,
+                range: 10.0,
+                bearing: 0.0,
+            },
+            &cfg,
+        );
+        ekf.initialize_landmark(
+            &Observation {
+                id: 2,
+                range: 15.0,
+                bearing: 0.5,
+            },
+            &cfg,
+        );
+        let l2_x_before = ekf.state[5];
+        let l2_y_before = ekf.state[6];
+        ekf.correct_landmark(
+            &Observation {
+                id: 1,
+                range: 8.0,
+                bearing: 0.1,
+            },
+            3,
+            &cfg,
+        );
+        assert!(ekf.state[5] != l2_x_before || ekf.state[6] != l2_y_before);
+    }
+
+    #[test]
+    fn test_ekf_correct_near_zero_range_numerical_stability() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.initialize_landmark(
+            &Observation {
+                id: 1,
+                range: 1e-4,
+                bearing: 0.0,
+            },
+            &cfg,
+        );
+        ekf.correct_landmark(
+            &Observation {
+                id: 1,
+                range: 1e-4,
+                bearing: 0.0,
+            },
+            3,
+            &cfg,
+        );
+        assert!(!ekf.state[0].is_nan() && !ekf.state[3].is_nan());
+    }
+
+    #[test]
+    fn test_ekf_update_routes_unseen_id_to_initialization() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.update(
+            &[Observation {
+                id: 10,
+                range: 10.0,
+                bearing: 0.0,
+            }],
+            &cfg,
+        );
+        assert!(ekf.observed_landmarks.contains_key(&10));
+        assert_eq!(ekf.state.len(), 5);
+    }
+
+    #[test]
+    fn test_ekf_update_routes_seen_id_to_correction() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.update(
+            &[Observation {
+                id: 10,
+                range: 10.0,
+                bearing: 0.0,
+            }],
+            &cfg,
+        );
+        ekf.update(
+            &[Observation {
+                id: 10,
+                range: 10.1,
+                bearing: 0.01,
+            }],
+            &cfg,
+        );
+        assert_eq!(ekf.state.len(), 5);
+    }
+
+    #[test]
+    fn test_ekf_update_processes_multiple_mixed_observations() {
+        let cfg = Config::default();
+        let mut ekf = EkfSlam::new();
+        ekf.update(
+            &[Observation {
+                id: 1,
+                range: 10.0,
+                bearing: 0.0,
+            }],
+            &cfg,
+        );
+        ekf.update(
+            &[
+                Observation {
+                    id: 1,
+                    range: 10.0,
+                    bearing: 0.0,
+                },
+                Observation {
+                    id: 2,
+                    range: 15.0,
+                    bearing: 0.5,
+                },
+            ],
+            &cfg,
+        );
+        assert_eq!(ekf.state.len(), 7);
+        assert_eq!(ekf.observed_landmarks.len(), 2);
+    }
+}

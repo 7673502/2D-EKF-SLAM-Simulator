@@ -285,3 +285,391 @@ impl Slam for FastSlam {
         Self::COLOR
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::f32::consts::PI;
+
+    #[test]
+    fn test_fast_slam_new_exact_particle_count() {
+        let slam = FastSlam::new(50);
+        assert_eq!(slam.particles.len(), 50);
+        assert_eq!(slam.num_particles, 50);
+    }
+
+    #[test]
+    fn test_fast_slam_new_initial_unit_weights_and_zero_poses() {
+        let slam = FastSlam::new(10);
+        for p in &slam.particles {
+            assert_eq!(p.weight, 1.0);
+            assert_eq!(p.x, 0.0);
+            assert_eq!(p.y, 0.0);
+            assert_eq!(p.theta, 0.0);
+        }
+    }
+
+    #[test]
+    fn test_fast_slam_new_empty_landmarks_per_particle() {
+        let slam = FastSlam::new(5);
+        for p in &slam.particles {
+            assert!(p.landmarks.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_particle_initialize_landmark_mean_from_geometry() {
+        let mut particle = Particle {
+            x: 5.0,
+            y: 10.0,
+            theta: 0.0,
+            weight: 1.0,
+            landmarks: HashMap::new(),
+        };
+        let cfg = Config::default();
+        let obs = Observation {
+            id: 1,
+            range: 15.0,
+            bearing: 0.0,
+        };
+        particle.initialize_landmark(&obs, &cfg);
+        let lm = particle.landmarks.get(&1).unwrap();
+        assert!((lm.mu.x - 20.0).abs() < 1e-4);
+        assert!((lm.mu.y - 10.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_particle_initialize_landmark_covariance_symmetric_positive_definite() {
+        let mut particle = Particle {
+            x: 0.0,
+            y: 0.0,
+            theta: 0.5,
+            weight: 1.0,
+            landmarks: HashMap::new(),
+        };
+        let cfg = Config::default();
+        let obs = Observation {
+            id: 1,
+            range: 10.0,
+            bearing: 0.2,
+        };
+        particle.initialize_landmark(&obs, &cfg);
+        let lm = particle.landmarks.get(&1).unwrap();
+        assert!((lm.sigma[(0, 1)] - lm.sigma[(1, 0)]).abs() < 1e-5);
+        let eigen = lm.sigma.symmetric_eigen();
+        assert!(eigen.eigenvalues.iter().all(|&e| e > 0.0));
+    }
+
+    #[test]
+    fn test_particle_correct_landmark_decreases_covariance_trace() {
+        let mut particle = Particle {
+            x: 0.0,
+            y: 0.0,
+            theta: 0.0,
+            weight: 1.0,
+            landmarks: HashMap::new(),
+        };
+        let cfg = Config::default();
+        let obs = Observation {
+            id: 1,
+            range: 10.0,
+            bearing: 0.0,
+        };
+        particle.initialize_landmark(&obs, &cfg);
+        let trace_before = particle.landmarks.get(&1).unwrap().sigma.trace();
+        particle.correct_landmark(&obs, &cfg);
+        let trace_after = particle.landmarks.get(&1).unwrap().sigma.trace();
+        assert!(trace_after < trace_before);
+    }
+
+    #[test]
+    fn test_particle_correct_landmark_bearing_innovation_wraparound() {
+        let mut particle = Particle {
+            x: 0.0,
+            y: 0.0,
+            theta: PI - 0.05,
+            weight: 1.0,
+            landmarks: HashMap::new(),
+        };
+        let cfg = Config::default();
+        let obs1 = Observation {
+            id: 1,
+            range: 10.0,
+            bearing: 0.0,
+        };
+        particle.initialize_landmark(&obs1, &cfg);
+        let obs2 = Observation {
+            id: 1,
+            range: 10.0,
+            bearing: 0.01,
+        };
+        particle.correct_landmark(&obs2, &cfg);
+        let lm = particle.landmarks.get(&1).unwrap();
+        assert!(!lm.mu.x.is_nan() && !lm.mu.y.is_nan());
+        assert!(!particle.weight.is_nan() && particle.weight > 0.0);
+    }
+
+    #[test]
+    fn test_particle_correct_landmark_high_weight_for_accurate_measurement() {
+        let mut p_accurate = Particle {
+            x: 0.0,
+            y: 0.0,
+            theta: 0.0,
+            weight: 1.0,
+            landmarks: HashMap::new(),
+        };
+        let mut p_inaccurate = Particle {
+            x: 0.0,
+            y: 0.0,
+            theta: 0.0,
+            weight: 1.0,
+            landmarks: HashMap::new(),
+        };
+        let cfg = Config::default();
+        let obs = Observation {
+            id: 1,
+            range: 10.0,
+            bearing: 0.0,
+        };
+        p_accurate.initialize_landmark(&obs, &cfg);
+        p_inaccurate.initialize_landmark(&obs, &cfg);
+        p_accurate.correct_landmark(&obs, &cfg);
+        p_inaccurate.correct_landmark(
+            &Observation {
+                id: 1,
+                range: 25.0,
+                bearing: 1.0,
+            },
+            &cfg,
+        );
+        assert!(p_accurate.weight > p_inaccurate.weight);
+    }
+
+    #[test]
+    fn test_particle_correct_landmark_low_weight_for_divergent_measurement() {
+        let mut particle = Particle {
+            x: 0.0,
+            y: 0.0,
+            theta: 0.0,
+            weight: 1.0,
+            landmarks: HashMap::new(),
+        };
+        let cfg = Config::default();
+        let obs = Observation {
+            id: 1,
+            range: 10.0,
+            bearing: 0.0,
+        };
+        particle.initialize_landmark(&obs, &cfg);
+        particle.correct_landmark(
+            &Observation {
+                id: 1,
+                range: 100.0,
+                bearing: PI,
+            },
+            &cfg,
+        );
+        assert!(particle.weight < 1e-4);
+    }
+
+    #[test]
+    fn test_particle_correct_landmark_avoids_zero_or_nan_weight() {
+        let mut particle = Particle {
+            x: 0.0,
+            y: 0.0,
+            theta: 0.0,
+            weight: 1.0,
+            landmarks: HashMap::new(),
+        };
+        let cfg = Config::default();
+        let obs = Observation {
+            id: 1,
+            range: 10.0,
+            bearing: 0.0,
+        };
+        particle.initialize_landmark(&obs, &cfg);
+        particle.correct_landmark(
+            &Observation {
+                id: 1,
+                range: 1000.0,
+                bearing: PI,
+            },
+            &cfg,
+        );
+        assert!(!particle.weight.is_nan() && particle.weight > 0.0);
+    }
+
+    #[test]
+    fn test_fast_slam_predict_disperses_particle_poses_with_noise() {
+        let cfg = Config::default();
+        let mut slam = FastSlam::new(50);
+        slam.predict(10.0, 0.5, 1.0, &cfg);
+        let min_x = slam
+            .particles
+            .iter()
+            .map(|p| p.x)
+            .fold(f32::INFINITY, f32::min);
+        let max_x = slam
+            .particles
+            .iter()
+            .map(|p| p.x)
+            .fold(f32::NEG_INFINITY, f32::max);
+        assert!(max_x > min_x);
+    }
+
+    #[test]
+    fn test_fast_slam_predict_stationary_minimum_dispersion() {
+        let cfg = Config::default();
+        let mut slam = FastSlam::new(20);
+        slam.predict(0.0, 0.0, 0.01, &cfg);
+        for p in &slam.particles {
+            assert!(p.x.abs() < 0.1);
+            assert!(p.y.abs() < 0.1);
+        }
+    }
+
+    #[test]
+    fn test_fast_slam_predict_heading_normalization_across_particles() {
+        let cfg = Config::default();
+        let mut slam = FastSlam::new(30);
+        for p in &mut slam.particles {
+            p.theta = PI - 0.1;
+        }
+        slam.predict(0.0, 2.0, 1.0, &cfg);
+        for p in &slam.particles {
+            assert!(p.theta > -PI && p.theta <= PI);
+        }
+    }
+
+    #[test]
+    fn test_fast_slam_resample_preserves_exact_particle_count() {
+        let mut slam = FastSlam::new(50);
+        slam.resample();
+        assert_eq!(slam.particles.len(), 50);
+    }
+
+    #[test]
+    fn test_fast_slam_resample_replicates_dominant_weight_particle() {
+        let mut slam = FastSlam::new(10);
+        for p in &mut slam.particles {
+            p.weight = 1e-8;
+        }
+        slam.particles[3].weight = 1000.0;
+        slam.particles[3].x = 77.0;
+        slam.resample();
+        let count_dominant = slam
+            .particles
+            .iter()
+            .filter(|p| (p.x - 77.0).abs() < 1e-3)
+            .count();
+        assert!(count_dominant >= 8);
+    }
+
+    #[test]
+    fn test_fast_slam_resample_eliminates_negligible_weight_particles() {
+        let mut slam = FastSlam::new(10);
+        for i in 0..10 {
+            slam.particles[i].x = i as f32;
+            if i == 0 {
+                slam.particles[i].weight = 100.0;
+            } else {
+                slam.particles[i].weight = 1e-12;
+            }
+        }
+        slam.resample();
+        let count_eliminated = slam
+            .particles
+            .iter()
+            .filter(|p| (p.x - 5.0).abs() < 1e-3)
+            .count();
+        assert_eq!(count_eliminated, 0);
+    }
+
+    #[test]
+    fn test_fast_slam_resample_resets_all_weights_to_unity() {
+        let mut slam = FastSlam::new(20);
+        for (i, p) in slam.particles.iter_mut().enumerate() {
+            p.weight = (i + 1) as f32;
+        }
+        slam.resample();
+        for p in &slam.particles {
+            assert!((p.weight - 1.0).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn test_fast_slam_resample_weight_collapse_safety_fallback() {
+        let mut slam = FastSlam::new(10);
+        for p in &mut slam.particles {
+            p.weight = 0.0;
+        }
+        slam.resample();
+        assert_eq!(slam.particles.len(), 10);
+        for p in &slam.particles {
+            assert_eq!(p.weight, 1.0);
+        }
+    }
+
+    #[test]
+    fn test_fast_slam_get_state_weighted_mean_position() {
+        let mut slam = FastSlam::new(2);
+        slam.particles[0].x = 10.0;
+        slam.particles[0].y = 0.0;
+        slam.particles[0].weight = 1.0;
+        slam.particles[1].x = 20.0;
+        slam.particles[1].y = 10.0;
+        slam.particles[1].weight = 3.0;
+        let (x, y, _) = slam.get_state();
+        assert!((x - 17.5).abs() < 1e-4);
+        assert!((y - 7.5).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_fast_slam_get_state_circular_mean_heading_near_branch_cut() {
+        let mut slam = FastSlam::new(2);
+        slam.particles[0].theta = PI - 0.1;
+        slam.particles[0].weight = 1.0;
+        slam.particles[1].theta = -PI + 0.1;
+        slam.particles[1].weight = 1.0;
+        let (_, _, heading) = slam.get_state();
+        assert!((heading.abs() - PI).abs() < 0.15);
+    }
+
+    #[test]
+    fn test_fast_slam_get_state_zero_weight_safe_fallback() {
+        let mut slam = FastSlam::new(5);
+        for p in &mut slam.particles {
+            p.weight = 0.0;
+        }
+        let state = slam.get_state();
+        assert_eq!(state, (0.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn test_fast_slam_get_landmarks_weighted_mean_aggregation() {
+        let mut slam = FastSlam::new(2);
+        let cfg = Config::default();
+        slam.particles[0].weight = 1.0;
+        slam.particles[0].initialize_landmark(
+            &Observation {
+                id: 1,
+                range: 10.0,
+                bearing: 0.0,
+            },
+            &cfg,
+        );
+        slam.particles[1].weight = 3.0;
+        slam.particles[1].initialize_landmark(
+            &Observation {
+                id: 1,
+                range: 20.0,
+                bearing: 0.0,
+            },
+            &cfg,
+        );
+        let landmarks = slam.get_landmarks();
+        assert_eq!(landmarks.len(), 1);
+        assert_eq!(landmarks[0].0, 1);
+        assert!((landmarks[0].1 - 17.5).abs() < 1e-4);
+    }
+}

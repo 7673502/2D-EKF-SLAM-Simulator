@@ -80,6 +80,47 @@ pub fn zoom_input(
     min_horizontal_units: f32,
     max_horizontal_units: f32,
 ) {
+    apply_zoom(
+        horizontal_units,
+        mouse_wheel().1,
+        min_horizontal_units,
+        max_horizontal_units,
+    );
+}
+
+pub(crate) fn apply_zoom(
+    horizontal_units: &mut f32,
+    wheel_delta: f32,
+    min_horizontal_units: f32,
+    max_horizontal_units: f32,
+) {
     *horizontal_units =
-        (*horizontal_units - mouse_wheel().1).clamp(min_horizontal_units, max_horizontal_units)
+        (*horizontal_units - wheel_delta).clamp(min_horizontal_units, max_horizontal_units);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_zoom_input_clamps_to_min_horizontal_units() {
+        let mut units = 100.0;
+        apply_zoom(&mut units, 0.0, 500.0, 2500.0);
+        assert_eq!(units, 500.0);
+
+        let mut units_scrolling = 510.0;
+        apply_zoom(&mut units_scrolling, 20.0, 500.0, 2500.0);
+        assert_eq!(units_scrolling, 500.0);
+    }
+
+    #[test]
+    fn test_zoom_input_clamps_to_max_horizontal_units() {
+        let mut units = 3000.0;
+        apply_zoom(&mut units, 0.0, 500.0, 2500.0);
+        assert_eq!(units, 2500.0);
+
+        let mut units_scrolling = 2490.0;
+        apply_zoom(&mut units_scrolling, -20.0, 500.0, 2500.0);
+        assert_eq!(units_scrolling, 2500.0);
+    }
 }

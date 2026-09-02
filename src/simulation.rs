@@ -194,3 +194,556 @@ impl Robot {
         u1 <= u2
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::f32::consts::PI;
+
+    fn noiseless_config() -> Config {
+        Config {
+            real_stdev_linear: 0.0,
+            real_stdev_angular: 0.0,
+            real_stdev_range: 0.0,
+            real_stdev_bearing: 0.0,
+            ..Config::default()
+        }
+    }
+
+    #[test]
+    fn test_robot_new_initializes_zero_state() {
+        let robot = Robot::new();
+        assert_eq!(robot.x, 0.0);
+        assert_eq!(robot.y, 0.0);
+        assert_eq!(robot.theta, 0.0);
+        assert_eq!(robot.linear_velocity, 0.0);
+        assert_eq!(robot.angular_velocity, 0.0);
+    }
+
+    #[test]
+    fn test_robot_update_clamping_max_positive_linear_speed() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        robot.linear_velocity = 500.0;
+        robot.update(0.001, &cfg, &[]);
+        assert!(robot.linear_velocity <= cfg.max_linear_speed);
+    }
+
+    #[test]
+    fn test_robot_update_clamping_max_negative_linear_speed() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        robot.linear_velocity = -500.0;
+        robot.update(0.001, &cfg, &[]);
+        assert!(robot.linear_velocity >= -cfg.max_linear_speed);
+    }
+
+    #[test]
+    fn test_robot_update_clamping_angular_speed() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        robot.angular_velocity = 50.0;
+        robot.update(0.001, &cfg, &[]);
+        assert!(robot.angular_velocity <= cfg.max_angular_speed);
+
+        robot.angular_velocity = -50.0;
+        robot.update(0.001, &cfg, &[]);
+        assert!(robot.angular_velocity >= -cfg.max_angular_speed);
+    }
+
+    #[test]
+    fn test_robot_update_exponential_drag_decay_linear() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        robot.linear_velocity = 100.0;
+        let dt = 0.2;
+        let expected = 100.0 * (-cfg.drag_linear * dt).exp();
+        robot.update(dt, &cfg, &[]);
+        assert!((robot.linear_velocity - expected).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_robot_update_exponential_drag_decay_angular() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        robot.angular_velocity = 1.0;
+        let dt = 0.2;
+        let expected = 1.0 * (-cfg.drag_angular * dt).exp();
+        robot.update(dt, &cfg, &[]);
+        assert!((robot.angular_velocity - expected).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_robot_update_stationary_zero_velocity_drift_free() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        robot.update(1.0, &cfg, &[]);
+        assert_eq!(robot.x, 0.0);
+        assert_eq!(robot.y, 0.0);
+        assert_eq!(robot.theta, 0.0);
+    }
+
+    #[test]
+    fn test_robot_update_heading_normalization_to_pi_range() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        robot.theta = PI - 0.1;
+        robot.angular_velocity = 1.0;
+        robot.prev_angular_velocity = 1.0;
+        robot.update(1.0, &cfg, &[]);
+        assert!(robot.theta > -PI && robot.theta <= PI);
+    }
+
+    #[test]
+    fn test_robot_update_midpoint_integration_displacement() {
+        let mut cfg = noiseless_config();
+        cfg.drag_linear = 0.0;
+        cfg.drag_angular = 0.0;
+        let mut robot = Robot::new();
+        robot.linear_velocity = 10.0;
+        robot.prev_linear_velocity = 10.0;
+        robot.update(1.0, &cfg, &[]);
+        assert!((robot.x - 10.0).abs() < 1e-4);
+        assert!(robot.y.abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_robot_collision_no_obstructions_retains_position() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        robot.x = 25.0;
+        robot.y = 35.0;
+        robot.update(0.01, &cfg, &[]);
+        assert!((robot.x - 25.0).abs() < 1e-4);
+        assert!((robot.y - 35.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_robot_collision_left_edge_penetration_resolves() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        let rect = Rect::new(100.0, 100.0, 50.0, 50.0);
+        robot.x = 90.0;
+        robot.y = 125.0;
+        robot.update(0.0, &cfg, &[rect]);
+        assert!((robot.x - (100.0 - cfg.robot_radius)).abs() < 1e-4);
+        assert!((robot.y - 125.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_robot_collision_right_edge_penetration_resolves() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        let rect = Rect::new(100.0, 100.0, 50.0, 50.0);
+        robot.x = 160.0;
+        robot.y = 125.0;
+        robot.update(0.0, &cfg, &[rect]);
+        assert!((robot.x - (150.0 + cfg.robot_radius)).abs() < 1e-4);
+        assert!((robot.y - 125.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_robot_collision_top_edge_penetration_resolves() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        let rect = Rect::new(100.0, 100.0, 50.0, 50.0);
+        robot.x = 125.0;
+        robot.y = 90.0;
+        robot.update(0.0, &cfg, &[rect]);
+        assert!((robot.x - 125.0).abs() < 1e-4);
+        assert!((robot.y - (100.0 - cfg.robot_radius)).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_robot_collision_bottom_edge_penetration_resolves() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        let rect = Rect::new(100.0, 100.0, 50.0, 50.0);
+        robot.x = 125.0;
+        robot.y = 160.0;
+        robot.update(0.0, &cfg, &[rect]);
+        assert!((robot.x - 125.0).abs() < 1e-4);
+        assert!((robot.y - (150.0 + cfg.robot_radius)).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_robot_collision_corner_penetration_diagonal_pushout() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        let rect = Rect::new(100.0, 100.0, 50.0, 50.0);
+        robot.x = 90.0;
+        robot.y = 90.0;
+        robot.update(0.0, &cfg, &[rect]);
+        let expected_offset = cfg.robot_radius / 2.0f32.sqrt();
+        assert!((robot.x - (100.0 - expected_offset)).abs() < 1e-3);
+        assert!((robot.y - (100.0 - expected_offset)).abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_robot_collision_center_exactly_at_obstruction_center() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        let rect = Rect::new(100.0, 100.0, 50.0, 50.0);
+        robot.x = 125.0;
+        robot.y = 125.0;
+        robot.update(0.0, &cfg, &[rect]);
+        assert_eq!(robot.x, 125.0);
+        assert_eq!(robot.y, 125.0);
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_completely_inside_rect() {
+        let robot = Robot {
+            x: 15.0,
+            y: 15.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 25.0,
+            y: 25.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_completely_outside_left() {
+        let robot = Robot {
+            x: 0.0,
+            y: 15.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 5.0,
+            y: 25.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(!robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_completely_outside_right() {
+        let robot = Robot {
+            x: 35.0,
+            y: 15.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 40.0,
+            y: 25.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(!robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_completely_outside_above() {
+        let robot = Robot {
+            x: 15.0,
+            y: 0.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 25.0,
+            y: 5.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(!robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_completely_outside_below() {
+        let robot = Robot {
+            x: 15.0,
+            y: 35.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 25.0,
+            y: 40.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(!robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_traversing_horizontal() {
+        let robot = Robot {
+            x: 0.0,
+            y: 20.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 40.0,
+            y: 20.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_traversing_vertical() {
+        let robot = Robot {
+            x: 20.0,
+            y: 0.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 20.0,
+            y: 40.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_traversing_diagonal() {
+        let robot = Robot {
+            x: 0.0,
+            y: 0.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 40.0,
+            y: 40.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_starting_inside_ending_outside() {
+        let robot = Robot {
+            x: 20.0,
+            y: 20.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 50.0,
+            y: 20.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_starting_outside_ending_inside() {
+        let robot = Robot {
+            x: 0.0,
+            y: 20.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 20.0,
+            y: 20.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_parallel_outside_rect() {
+        let robot = Robot {
+            x: 0.0,
+            y: 5.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 50.0,
+            y: 5.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(!robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_parallel_inside_rect() {
+        let robot = Robot {
+            x: 12.0,
+            y: 20.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 28.0,
+            y: 20.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_segment_collinear_grazing_rect_boundary() {
+        let robot = Robot {
+            x: 0.0,
+            y: 10.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 40.0,
+            y: 10.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_degenerate_point_inside_rect() {
+        let robot = Robot {
+            x: 20.0,
+            y: 20.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 20.0,
+            y: 20.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_degenerate_point_outside_rect() {
+        let robot = Robot {
+            x: 5.0,
+            y: 5.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 5.0,
+            y: 5.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(!robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_liang_barsky_infinite_line_intersects_but_finite_segment_misses() {
+        let robot = Robot {
+            x: 0.0,
+            y: 20.0,
+            ..Robot::new()
+        };
+        let landmark = Landmark {
+            id: 0,
+            x: 5.0,
+            y: 20.0,
+        };
+        let rect = Rect::new(10.0, 10.0, 20.0, 20.0);
+        assert!(!robot.liang_barsky(&landmark, &rect));
+    }
+
+    #[test]
+    fn test_sense_detects_landmark_within_sensor_range() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        let landmarks = vec![Landmark {
+            id: 1,
+            x: 50.0,
+            y: 0.0,
+        }];
+        let obs = robot.sense(&landmarks, &[], &cfg);
+        assert_eq!(obs.len(), 1);
+        assert_eq!(obs[0].id, 1);
+    }
+
+    #[test]
+    fn test_sense_ignores_landmark_beyond_sensor_range() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        let landmarks = vec![Landmark {
+            id: 1,
+            x: cfg.sensor_range + 50.0,
+            y: 0.0,
+        }];
+        let obs = robot.sense(&landmarks, &[], &cfg);
+        assert!(obs.is_empty());
+    }
+
+    #[test]
+    fn test_sense_ignores_landmark_occluded_by_obstruction() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        let landmarks = vec![Landmark {
+            id: 1,
+            x: 100.0,
+            y: 0.0,
+        }];
+        let rect = Rect::new(40.0, -10.0, 20.0, 20.0);
+        let obs = robot.sense(&landmarks, &[rect], &cfg);
+        assert!(obs.is_empty());
+    }
+
+    #[test]
+    fn test_sense_returns_multiple_unoccluded_landmarks() {
+        let cfg = noiseless_config();
+        let mut robot = Robot::new();
+        let landmarks = vec![
+            Landmark {
+                id: 1,
+                x: 30.0,
+                y: 0.0,
+            },
+            Landmark {
+                id: 2,
+                x: 0.0,
+                y: 40.0,
+            },
+        ];
+        let obs = robot.sense(&landmarks, &[], &cfg);
+        assert_eq!(obs.len(), 2);
+    }
+
+    #[test]
+    fn test_sense_bearing_normalization_within_bounds() {
+        let cfg = Config::default();
+        let mut robot = Robot {
+            theta: 2.5,
+            ..Robot::new()
+        };
+        let landmarks = vec![Landmark {
+            id: 1,
+            x: -50.0,
+            y: -50.0,
+        }];
+        let obs = robot.sense(&landmarks, &[], &cfg);
+        assert_eq!(obs.len(), 1);
+        assert!(obs[0].bearing > -PI && obs[0].bearing <= PI);
+    }
+
+    #[test]
+    fn test_sense_noiseless_observation_matches_ground_truth() {
+        let cfg = noiseless_config();
+        let mut robot = Robot {
+            x: 10.0,
+            y: 10.0,
+            theta: 0.0,
+            ..Robot::new()
+        };
+        let landmarks = vec![Landmark {
+            id: 42,
+            x: 40.0,
+            y: 50.0,
+        }];
+        let obs = robot.sense(&landmarks, &[], &cfg);
+        assert_eq!(obs.len(), 1);
+        let expected_range = (30.0f32.powi(2) + 40.0f32.powi(2)).sqrt();
+        let expected_bearing = 40.0f32.atan2(30.0);
+        assert!((obs[0].range - expected_range).abs() < 1e-4);
+        assert!((obs[0].bearing - expected_bearing).abs() < 1e-4);
+    }
+}

@@ -161,10 +161,31 @@ pub fn draw_cog() {
 
 pub fn is_cog_hovered() -> bool {
     let (mouse_x, mouse_y) = mouse_position();
+    is_cog_hovered_at(mouse_x, mouse_y)
+}
+
+pub(crate) fn is_cog_hovered_at(mouse_x: f32, mouse_y: f32) -> bool {
     let effective_radius = COG_R + COG_THICKNESS;
 
     mouse_x > COG_X - effective_radius
         && mouse_y > COG_Y - effective_radius
         && mouse_x < COG_X + effective_radius
         && mouse_y < COG_Y + effective_radius
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_cog_hovered_hit_test_inside_effective_radius() {
+        assert!(is_cog_hovered_at(COG_X, COG_Y));
+        assert!(is_cog_hovered_at(COG_X + 5.0, COG_Y - 5.0));
+    }
+
+    #[test]
+    fn test_is_cog_hovered_hit_test_outside_effective_radius() {
+        assert!(!is_cog_hovered_at(0.0, 0.0));
+        assert!(!is_cog_hovered_at(COG_X + 20.0, COG_Y));
+    }
 }
